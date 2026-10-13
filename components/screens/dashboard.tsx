@@ -2,13 +2,15 @@
 
 import { prospects } from "@/lib/mock-data";
 import type { Role } from "@/lib/types";
-import { canViewProspect, roleProfiles } from "@/lib/permissions";
+import { canViewProspect } from "@/lib/permissions";
 import { Icon } from "../icon";
+import { useSession } from "../auth/session-provider";
 
 type Props = { role: Role; navigate: (page: string) => void; openConversation: (id: string) => void };
 
 export function Dashboard({ role, navigate, openConversation }: Props) {
-  const leads = prospects.filter((p) => canViewProspect(role, p));
+  const user = useSession();
+  const leads = prospects.filter((p) => canViewProspect(role, p, user));
   const waiting = leads.filter((p) => p.status === "Waiting on us");
   const unassigned = leads.filter((p) => p.owner === "Unassigned" && p.status !== "Opted out");
   const inJourney = leads.filter((p) => p.status === "In journey");
@@ -33,7 +35,7 @@ export function Dashboard({ role, navigate, openConversation }: Props) {
       </section>
       <aside className="side-stack">
         <section className="card"><div className="card-header"><div><h3>Rooftops in scope</h3><p>Separate dealership and sending identities.</p></div></div>
-          {[{ n: "Cranbourne Kia", a: "209 South Gippsland Hwy", i: "KIA", c: "#101c2e" }, { n: "Cranbourne MG", a: "215 South Gippsland Hwy", i: "MG", c: "#d91824" }, { n: "Geely Cranbourne", a: "217A South Gippsland Hwy", i: "G", c: "#17479e" }].filter((r) => roleProfiles[role].rooftops.some((roof) => roof === r.n)).map((r) => <div className="dashboard-rooftop" key={r.n}><i style={{background:r.c}}>{r.i}</i><div><b>{r.n}</b><span>{r.a}</span></div><span>{leads.filter((p) => p.rooftop === r.n).length} prospects</span></div>)}
+          {[{ n: "Cranbourne Kia", a: "209 South Gippsland Hwy", i: "KIA", c: "#101c2e" }, { n: "Cranbourne MG", a: "215 South Gippsland Hwy", i: "MG", c: "#d91824" }, { n: "Geely Cranbourne", a: "217A South Gippsland Hwy", i: "G", c: "#17479e" }].filter((r) => user.rooftops.some((roof) => roof === r.n)).map((r) => <div className="dashboard-rooftop" key={r.n}><i style={{background:r.c}}>{r.i}</i><div><b>{r.n}</b><span>{r.a}</span></div><span>{leads.filter((p) => p.rooftop === r.n).length} prospects</span></div>)}
         </section>
         <section className="card connection-card"><span>DEALERSOCKET WRITE-BACK</span><h3>Opportunity system of record</h3><p>Outbound, inbound and outcomes are written back as timestamped activities or work notes.</p><div className="integration-status">Frontend preview · live connection pending</div></section>
       </aside>

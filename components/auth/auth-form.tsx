@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { submitAuthPreview, validateAuth, type AuthMode, type AuthValues, type AuthErrors } from "@/lib/auth";
+import { login, submitAuthPreview, validateAuth, type AuthMode, type AuthValues, type AuthErrors } from "@/lib/auth";
 import { Icon } from "@/components/icon";
 
 const copy = {
@@ -33,11 +33,10 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     if (Object.keys(validation).length) return;
     setBusy(true);
     try {
-      await submitAuthPreview(mode);
-      if (mode === "signin") router.push("/");
-      else { setSuccess(true); setValues((current) => ({ ...current, password: "", confirmPassword: "" })); }
-    } catch {
-      setErrors({ form: "We couldn’t complete your request. Please try again." });
+      if (mode === "signin") { await login(values.email, values.password); router.replace("/"); }
+      else { await submitAuthPreview(mode); setSuccess(true); setValues((current) => ({ ...current, password: "", confirmPassword: "" })); }
+    } catch (cause) {
+      setErrors({ form: cause instanceof Error ? cause.message : "We couldn’t complete your request. Please try again." });
     } finally { setBusy(false); }
   }
 
@@ -65,7 +64,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           </fieldset>
         </form>
         <p className="auth-switch">{mode === "signin" ? <>New to the portal? <Link href="/signup">Create an account</Link></> : mode === "signup" ? <>Already have an account? <Link href="/signin">Sign in</Link></> : <Link href="/signin">← Back to sign in</Link>}</p>
-        <div className="auth-preview-notice">Frontend preview · {mode === "signin" ? "Sign in opens the demo workspace." : mode === "signup" ? "Account creation will be connected to your identity service." : "Reset email delivery will be connected to your identity service."}</div>
+        {mode !== "signin" && <div className="auth-preview-notice">Frontend preview · {mode === "signup" ? "Account creation will be connected to your identity service." : "Reset email delivery will be connected to your identity service."}</div>}
       </>}
     </div><footer className="auth-main-footer"><Icon name="shield" size={13} /> Authorised Booran Motor Group users only</footer></section>
   </main>;

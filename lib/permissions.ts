@@ -14,20 +14,23 @@ export const roleProfiles: Record<Role, { shortLabel: string; name: string; roof
   "Automation / System Administrator": { shortLabel: "AUTOMATION", name: "Priya Shah", rooftops: allRooftops, description: "Journey rules, message schedules, triggers, failures and execution history.", permissions: ["overview", "conversations", "controlConversationJourney", "journeys", "templates", "reports", "automation"] },
 };
 
-export function hasPermission(role: Role, permission: Permission): boolean {
-  return roleProfiles[role].permissions.includes(permission);
+export type AccessIdentity = { name: string; rooftops: Rooftop[]; permissions: Permission[]; ownProspectsOnly: boolean };
+
+export function hasPermission(role: Role, permission: Permission, identity?: AccessIdentity): boolean {
+  return (identity?.permissions ?? roleProfiles[role].permissions).includes(permission);
 }
 
-export function canViewProspect(role: Role, prospect: Prospect): boolean {
-  const profile = roleProfiles[role];
-  return profile.rooftops.includes(prospect.rooftop) && (role !== "Sales Consultant / Staff" || prospect.owner === profile.name || prospect.owner === "Unassigned");
+export function canViewProspect(role: Role, prospect: Prospect, identity?: AccessIdentity): boolean {
+  const profile = identity ?? roleProfiles[role];
+  const ownOnly = identity ? identity.ownProspectsOnly : role === "Sales Consultant / Staff";
+  return profile.rooftops.includes(prospect.rooftop) && (!ownOnly || prospect.owner === profile.name || prospect.owner === "Unassigned");
 }
 
 const pagePermissions: Record<string, Permission> = {
   overview: "overview", conversations: "conversations", prospects: "conversations", journeys: "journeys", templates: "templates", reports: "reports", suppression: "compliance", team: "users", settings: "settings", automation: "automation",
 };
 
-export function canAccessPage(role: Role, page: string): boolean {
+export function canAccessPage(role: Role, page: string, identity?: AccessIdentity): boolean {
   const permission = pagePermissions[page];
-  return !!permission && hasPermission(role, permission);
+  return !!permission && hasPermission(role, permission, identity);
 }

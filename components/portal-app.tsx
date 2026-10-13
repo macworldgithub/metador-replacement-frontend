@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { navGroups } from "@/lib/mock-data";
-import type { Role } from "@/lib/types";
-import { canAccessPage, roleNames, roleProfiles } from "@/lib/permissions";
+import { canAccessPage, roleProfiles } from "@/lib/permissions";
 import { Icon } from "./icon";
 import { Dashboard } from "./screens/dashboard";
 import { Conversations } from "./screens/conversations";
 import { Prospects } from "./screens/prospects";
 import { AdminScreen } from "./screens/admin-screens";
+import { SessionProvider, useSession } from "./auth/session-provider";
+import { logout } from "@/lib/auth";
 
 const pageTitles: Record<string, [string, string]> = {
   overview: ["New-lead overview", "Live new-lead conversations across your authorised rooftops."],
@@ -24,9 +25,13 @@ const pageTitles: Record<string, [string, string]> = {
   automation: ["Automation monitoring", "Journey triggers, execution history and failures."],
 };
 
-export function PortalApp() {
+export function PortalApp() { return <SessionProvider><AuthenticatedPortal /></SessionProvider>; }
+
+function AuthenticatedPortal() {
   const router = useRouter();
-  const [role, setRole] = useState<Role>("Super Admin");
+  const user = useSession();
+  const role = user.role;
+  const [profileOpen, setProfileOpen] = useState(false);
   const [page, setPage] = useState("overview");
   const [prospectId, setProspectId] = useState("p1");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -38,22 +43,20 @@ export function PortalApp() {
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
-  function changeRole(next: Role) {
-    setRole(next);
-    const allowed = canAccessPage(next, page);
-    if (!allowed) setPage("overview");
-    setToast(`Workspace changed to ${next}`);
+  async function signOut() {
+    try { await logout(); router.replace("/signin"); }
+    catch { setToast("Could not sign out. Please try again."); }
   }
 
   function navigate(next: string) {
-    if (!canAccessPage(role, next)) { setToast("This page is unavailable for your role."); return; }
+    if (!canAccessPage(role, next, user)) { setToast("This page is unavailable for your role."); return; }
     setPage(next);
     setSidebarOpen(false);
   }
 
-  const activePage = canAccessPage(role, page) ? page : "overview";
+  const activePage = canAccessPage(role, page, user) ? page : "overview";
   const title = pageTitles[activePage] ?? pageTitles.overview;
-  const profile = roleProfiles[role];
+  const profile = { ...roleProfiles[role], name: user.name, rooftops: user.rooftops };
 
 
   return (
@@ -68,14 +71,12 @@ export function PortalApp() {
         </div>
         <div className="role-panel">
           <label htmlFor="role">WORKSPACE ROLE</label>
-          <select id="role" value={role} onChange={(e) => changeRole(e.target.value as Role)}>
-            {roleNames.map((name) => <option key={name}>{name}</option>)}
-          </select>
+          <div id="role" className="authenticated-role">{user.apiRole === "read_only" ? "Read only" : role}</div>
           <div className="network-card"><span className="live-dot" /> <b>Cranbourne dealerships</b><span>{profile.rooftops.length} ROOFTOPS</span></div>
         </div>
         <nav className="main-nav" aria-label="Main navigation">
           {navGroups.map((group) => {
-            const visible = group.items.filter((item) => item.roles.includes(role));
+            const visible = group.items.filter((item) => canAccessPage(role, item.id, user));
             if (!visible.length) return null;
             return <div className="nav-group" key={group.label}>
               <p>{group.label}</p>
@@ -85,7 +86,7 @@ export function PortalApp() {
             </div>;
           })}
         </nav>
-        <div className="sidebar-footer"><div className="user-avatar">{profile.name.split(" ").map((part) => part[0]).join("")}</div><div><b>{profile.name}</b><span>{profile.shortLabel} workspace</span></div><button aria-label="Sign out" onClick={() => router.push("/signin")}><Icon name="logout" /></button></div>
+        <div className="sidebar-footer"><div className="user-avatar">{profile.name.split(" ").map((part) => part[0]).join("")}</div><div><button className="profile-trigger" onClick={() => setProfileOpen(true)}>{profile.name}</button><span>{profile.shortLabel} workspace</span></div><button aria-label="Sign out" onClick={() => { void signOut(); }}><Icon name="logout" /></button></div>
       </aside>
 
       <div className="workspace">
@@ -101,6 +102,7 @@ export function PortalApp() {
           {["journeys", "templates", "reports", "suppression", "team", "settings", "automation"].includes(activePage) && <AdminScreen role={role} page={activePage} notify={setToast} />}
         </main>
       </div>
+      {profileOpen && <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true" aria-label="Your profile"><div className="modal-header"><h3>Your profile</h3><button className="icon-button" aria-label="Close profile" onClick={() => setProfileOpen(false)}><Icon name="close" /></button></div><div className="authenticated-profile"><h4>{user.name}</h4><p>{user.email}</p><dl><dt>Role</dt><dd>{user.apiRole === "read_only" ? "Read only" : user.role}</dd><dt>Account</dt><dd>{user.isActive ? "Active" : "Inactive"}</dd><dt>Dealership access</dt><dd>{user.rooftops.length ? user.rooftops.join(", ") : "No rooftops assigned"}</dd></dl><button className="btn secondary" onClick={() => { void signOut(); }}>Sign out</button></div></section></div>}
       {toast && <div className="toast"><span><Icon name="check" size={15} /></span>{toast}</div>}
     </div>
   );

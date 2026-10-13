@@ -5,11 +5,13 @@ import { Icon } from "../icon";
 import type { Role } from "@/lib/types";
 import { canAccessPage, roleNames, roleProfiles } from "@/lib/permissions";
 import { AutomationMonitoring } from "./automation-monitoring";
+import { useSession } from "../auth/session-provider";
 
 type Props = { role: Role; page: string; notify: (message: string) => void };
 
 export function AdminScreen({ role, page, notify }: Props) {
-  if (!canAccessPage(role, page)) return <div className="empty-state"><Icon name="shield" /><b>Access restricted</b><span>This page is not available to your role.</span></div>;
+  const user = useSession();
+  if (!canAccessPage(role, page, user)) return <div className="empty-state"><Icon name="shield" /><b>Access restricted</b><span>This page is not available to your role.</span></div>;
   if (page === "automation") return <AutomationMonitoring notify={notify} />;
   if (page === "journeys") return <Journeys notify={notify} />;
   if (page === "templates") return <Templates notify={notify} />;
@@ -43,8 +45,9 @@ function Templates({ notify }: { notify: (m: string) => void }) {
   return <div className="page-wrap"><div className="section-heading"><div><span className="eyebrow">STAFF SMS</span><h2>Template library</h2><p>Merge fields: first name, rooftop, brand, vehicle of interest, salesperson first name and dealership phone.</p></div><button className="btn primary" onClick={() => setModal(true)}><Icon name="plus" />New template</button></div><div className="filter-bar card"><label className="search-field"><Icon name="search" /><input placeholder="Search templates" value={query} onChange={(e) => setQuery(e.target.value)} /></label><select><option>All categories</option><option>Appointment</option><option>Follow-up</option><option>Qualification</option><option>Acknowledgement</option></select><span className="filter-count">{templates.length} templates</span></div><div className="template-grid">{templates.map((t) => <article className="card template-card" key={t.name}><div><span>{t.category}</span><button className="icon-button"><Icon name="more" /></button></div><h3>{t.name}</h3><p>{t.body}</p><footer><small>Used {t.uses} times</small><button onClick={() => { navigator.clipboard?.writeText(t.body); notify("Template copied"); }}>Copy template</button></footer></article>)}</div>{modal && <EditorModal title="New message template" onClose={() => setModal(false)} onSave={() => { setModal(false); notify("Template saved as draft"); }} />}</div>;
 }
 
-function Reports({ role, notify }: { role: Role; notify: (m: string) => void }) {
-  const visibleRoofs = roofCards.filter((r) => roleProfiles[role].rooftops.some((roof) => roof === r.name));
+function Reports({ notify }: { role: Role; notify: (m: string) => void }) {
+  const user = useSession();
+  const visibleRoofs = roofCards.filter((r) => user.rooftops.some((roof) => roof === r.name));
   const dealershipOnly = visibleRoofs.length === 1;
   return <div className="page-wrap"><div className="section-heading"><div><span className="eyebrow">01–13 OCTOBER 2026</span><h2>Journey performance</h2><p>Engagement health across your authorised Cranbourne rooftops.</p></div><button className="btn secondary" onClick={() => notify("Performance CSV export prepared")}><Icon name="download" />Export CSV</button></div><div className="report-stats">{[{ l: "New leads", v: String(visibleRoofs.reduce((total, roof) => total + roof.volume, 0)), d: "Authorised rooftops · preview" }, { l: "Replied", v: dealershipOnly ? "67%" : "61%", d: dealershipOnly ? "31 customer replies" : "69 customer replies" }, { l: "Median first SMS", v: "38s", d: "Target under 60 sec" }, { l: "Appointments", v: dealershipOnly ? "10" : "24", d: "Appointment requests · preview" }].map((x) => <article className="card" key={x.l}><span>{x.l}</span><b>{x.v}</b><small>{x.d}</small></article>)}</div><div className="reports-grid"><section className="card chart-card"><div className="card-header"><div><h3>Lead and reply volume</h3><p>Daily qualifying leads versus customer replies.</p></div><span className="legend"><i />Leads <i />Replies</span></div><div className="bar-chart">{[52,72,58,86,66,91,44,65,78,60,82,92,68].map((h, i) => <div key={i}><i style={{ height: `${h}%` }} /><em style={{ height: `${Math.max(18, h - 27)}%` }} /><span>{i + 1}</span></div>)}</div></section><section className="card rooftop-report"><div className="card-header"><h3>By rooftop</h3></div>{visibleRoofs.map((r, i) => <div className="roof-report-row" key={r.name}><i style={{ background: r.colour }}>{r.initials}</i><span><b>{r.name}</b><small>{r.volume} leads</small></span><strong>{[67,58,55][i]}%</strong><small>reply rate</small></div>)}</section></div><section className="card outcome-table"><div className="card-header"><div><h3>Journey outcomes</h3><p>Explicit outcomes written back to DealerSocket.</p></div></div><div className="outcome-grid">{[{l:"Appointment requested",v:dealershipOnly ? 10 : 24,c:"#1da867"},{l:"Handed to salesperson",v:dealershipOnly ? 12 : 31,c:"#1686e8"},{l:"Not interested",v:dealershipOnly ? 3 : 9,c:"#f59e0b"},{l:"Opted out",v:dealershipOnly ? 2 : 6,c:"#df2434"},{l:"Wrong number",v:dealershipOnly ? 1 : 3,c:"#667085"}].map((o) => <div key={o.l}><span><i style={{background:o.c}} />{o.l}</span><b>{o.v}</b></div>)}</div></section></div>;
 }

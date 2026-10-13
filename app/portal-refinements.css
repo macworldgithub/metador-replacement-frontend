@@ -1,4 +1,17 @@
 /* Shared visual refinements for the Cranbourne conversation portal. */
+.session-state { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px; color: #344b68; text-align: center; }
+.session-state h1 { font-size: 22px; margin: 16px 0 6px; }
+.session-state p { color: #73859d; font-size: 13px; }
+.session-state > div { display: flex; gap: 10px; margin-top: 12px; }
+.authenticated-role { padding: 12px; color: white; border: 1px solid #334258; background: #0e1c2f; border-radius: 8px; font-size: 11px; line-height: 1.5; }
+.sidebar-footer .profile-trigger { padding: 0; color: white; font-weight: 700; font-size: 12px; text-align: left; }
+.sidebar-footer .profile-trigger:hover { text-decoration: underline; }
+.authenticated-profile { padding: 24px; }
+.authenticated-profile h4 { margin: 0 0 6px; font-size: 18px; }
+.authenticated-profile p { color: #73859d; }
+.authenticated-profile dt { font-size: 11px; color: #73859d; margin-top: 16px; }
+.authenticated-profile dd { margin: 5px 0; color: #344b68; line-height: 1.6; }
+.authenticated-profile button { margin-top: 20px; }
 .role-permissions-card { margin-top: 20px; padding-bottom: 12px; }
 .role-permission-row { padding: 16px 20px; border-bottom: 1px solid #edf0f4; }
 .role-permission-row:last-child { border-bottom: 0; }

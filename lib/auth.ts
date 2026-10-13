@@ -30,3 +30,32 @@ export async function submitAuthPreview(mode: AuthMode): Promise<{ preview: true
   await new Promise((resolve) => setTimeout(resolve, 650));
   return { preview: true, mode };
 }
+import type { AuthUser } from "./auth-profile";
+
+
+export class AuthApiError extends Error {
+  constructor(message: string, public readonly status: number) { super(message); this.name = "AuthApiError"; }
+}
+
+async function authRequest(path: string, init: RequestInit = {}): Promise<{ user: AuthUser }> {
+  let response: Response;
+  try { response = await fetch(`/api/auth/${path}`, { ...init, credentials: "same-origin", cache: "no-store" }); }
+  catch { throw new AuthApiError("Cannot reach the authentication service. Please try again.", 503); }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new AuthApiError(typeof data.message === "string" ? data.message : "Unable to complete your request.", response.status);
+  return data;
+}
+
+export async function login(email: string, password: string): Promise<AuthUser> {
+  const { user } = await authRequest("login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim(), password }) });
+  return user;
+}
+
+export async function getCurrentUser(signal?: AbortSignal): Promise<AuthUser> {
+  const { user } = await authRequest("me", { signal });
+  return user;
+}
+
+export async function logout(): Promise<void> {
+  await authRequest("logout", { method: "POST" });
+}
