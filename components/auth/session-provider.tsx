@@ -29,7 +29,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const interval = window.setInterval(() => { void load(); }, 60000);
     const onFocus = () => { void load(); };
     window.addEventListener("focus", onFocus);
-    return () => { active = false; controller.abort(); window.clearInterval(interval); window.removeEventListener("focus", onFocus); };
+    window.addEventListener("booran:session-refresh", onFocus);
+    return () => { active = false; controller.abort(); window.clearInterval(interval); window.removeEventListener("focus", onFocus); window.removeEventListener("booran:session-refresh", onFocus); };
   }, [router, retry]);
   const signOut = useCallback(async () => { await logout(); router.replace("/signin"); }, [router]);
   if (error) return <main className="session-state"><Icon name="alert" size={28} /><h1>Unable to load your workspace</h1><p role="alert">{error}</p><div><button className="btn primary" onClick={() => { setError(""); setRetry((value) => value + 1); }}>Try again</button><button className="btn secondary" onClick={() => { void signOut().catch(() => router.replace("/signin")); }}>Back to sign in</button></div></main>;

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./portal-refinements.css";
 import "./auth.css";
+import "./users.css";
+import "./conversations.css";
 
 export const metadata: Metadata = {
   title: "Booran Motor Group | New-lead conversation portal",

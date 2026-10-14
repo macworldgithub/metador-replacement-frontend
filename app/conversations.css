@@ -1,0 +1,89 @@
+.portal-api-error {
+  padding: 12px 16px;
+  background: #fff1f3;
+  border: 1px solid #f1c9ce;
+  color: #b41b29;
+  font-size: 12px;
+  line-height: 1.6;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.portal-api-error button {
+  background: none;
+  border: 0;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+.portal-detail-form {
+  display: grid;
+  gap: 8px;
+}
+.portal-detail-form label {
+  font-size: 10px;
+  color: #75869c;
+}
+.portal-detail-form input,
+.portal-detail-form select,
+.portal-detail-form textarea {
+  width: 100%;
+  border: 1px solid #dae2eb;
+  border-radius: 6px;
+  padding: 7px;
+  color: #334d6a;
+  font-size: 11px;
+  margin-top: 4px;
+  background: white;
+}
+.portal-detail-form textarea {
+  min-height: 55px;
+  resize: vertical;
+}
+.portal-detail-form button {
+  background: #f7f9fc;
+  border: 1px solid #d9e2ed;
+  border-radius: 6px;
+  padding: 8px;
+  color: #ac1520;
+  font-size: 10px;
+  font-weight: 700;
+}
+.bubble p,
+.internal-note p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bubble a {
+  display: block;
+  font-size: 11px;
+  text-decoration: underline;
+  margin: 6px 0;
+}
+.failed-send {
+  background: #fff0f1;
+  padding: 9px;
+  color: #ad1a28;
+  border-radius: 6px;
+  font-size: 11px;
+  margin: 8px 0;
+}
+.failed-send button {
+  background: white;
+  padding: 6px 9px;
+  color: #ad1a28;
+  border: 1px solid #dba1a8;
+  border-radius: 4px;
+}
+.thread-panel > .empty-state {
+  flex: 1;
+  justify-content: center;
+}
+.inbox-copy small {
+  display: block;
+  color: #8c9aae;
+  font-size: 9px;
+  margin-top: 7px;
+}
