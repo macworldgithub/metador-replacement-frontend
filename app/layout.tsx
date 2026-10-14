@@ -4,6 +4,7 @@ import "./portal-refinements.css";
 import "./auth.css";
 import "./users.css";
 import "./conversations.css";
+import "./compliance.css";
 
 export const metadata: Metadata = {
   title: "Booran Motor Group | New-lead conversation portal",

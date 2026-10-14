@@ -31,7 +31,7 @@ export const navGroups = [
     { id: "journeys", label: "Automated journey", icon: "route", roles: roleNames.filter((role) => canAccessPage(role, "journeys")) },
     { id: "templates", label: "Template library", icon: "template", roles: roleNames.filter((role) => canAccessPage(role, "templates")) },
     { id: "reports", label: "Journey performance", icon: "chart", roles: roleNames.filter((role) => canAccessPage(role, "reports")) },
-    { id: "suppression", label: "Suppression & audit", icon: "shield", badge: "3", roles: roleNames.filter((role) => canAccessPage(role, "suppression")) },
+    { id: "suppression", label: "Suppression & audit", icon: "shield", roles: roleNames.filter((role) => canAccessPage(role, "suppression")) },
   ]},
   { label: "Administration", items: [
     { id: "automation", label: "Automation monitoring", icon: "route", roles: roleNames.filter((role) => canAccessPage(role, "automation")) },
