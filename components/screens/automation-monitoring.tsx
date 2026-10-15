@@ -1,25 +1,197 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../icon";
 
-const executions = [
-  { id: "EX-001", rooftop: "Cranbourne Kia", opportunity: "DS-847291", trigger: "Qualifying new lead", result: "Ack delivered", status: "Completed", time: "9:59:38 am" },
-  { id: "EX-002", rooftop: "Cranbourne Kia", opportunity: "DS-847291", trigger: "Staff SMS", result: "Journey paused · human takeover", status: "Paused", time: "10:04 am" },
-  { id: "EX-003", rooftop: "Cranbourne Kia", opportunity: "DS-847291", trigger: "Customer reply", result: "Inbound appended to existing thread", status: "Paused", time: "10:06 am" },
-  { id: "EX-004", rooftop: "Cranbourne MG", opportunity: "DS-847288", trigger: "No reply · +4 business hours", result: "Qualify step queued within send hours", status: "Queued", time: "10:10 am" },
-  { id: "EX-005", rooftop: "Geely Cranbourne", opportunity: "DS-847044", trigger: "STOP keyword", result: "Mobile suppressed across all rooftops", status: "Stopped", time: "Yesterday, 2:14 pm" },
-];
+type ConnectorStatus = {
+  workerId?: string;
+  workerVersion?: string;
+  status: "healthy" | "degraded" | "failed" | "never_connected";
+  pollStartedAt?: string;
+  pollCompletedAt?: string;
+  intervalSeconds?: number;
+  filtersRead?: number;
+  recordsSeen: number;
+  recordsChanged: number;
+  recordsSent: number;
+  errors: number;
+  lastError?: string;
+  baselineCompletedAt?: string;
+  readOnly: boolean;
+};
 
-export function AutomationMonitoring({ notify }: { notify: (message: string) => void }) {
-  const [status, setStatus] = useState("All statuses");
-  const [rooftop, setRooftop] = useState("All rooftops");
-  const filtered = executions.filter((e) => (status === "All statuses" || status === e.status) && (rooftop === "All rooftops" || rooftop === e.rooftop));
-  return <div className="page-wrap"><div className="section-heading"><div><span className="eyebrow">AUTOMATION / SYSTEM ADMINISTRATION</span><h2>Triggers and execution history</h2><p>Review message schedules, handoffs and stop rules for new-lead journeys.</p></div><button className="btn secondary" onClick={() => notify("Preview execution history refreshed")}><Icon name="clock" />Refresh</button></div>
-    <p className="scope-note">Preview execution records. Live trigger, carrier and CRM failure monitoring will use the connected backend.</p>
-    <div className="report-stats">{[{ name: "First-message target", value: "60s", detail: "Qualifying lead · within send hours" }, { name: "Quiet hours", value: "20:00–09:00", detail: "Australia/Melbourne · closed days apply" }, { name: "Duplicate window", value: "14 days", detail: "Same mobile and rooftop" }, { name: "Write-back exceptions", value: "0", detail: "No failed writes in preview records" }].map((s) => <article className="card" key={s.name}><span>{s.name}</span><b>{s.value}</b><small>{s.detail}</small></article>)}</div>
-    <div className="filter-bar card"><select aria-label="Execution rooftop" value={rooftop} onChange={(e) => setRooftop(e.target.value)}><option>All rooftops</option><option>Cranbourne Kia</option><option>Cranbourne MG</option><option>Geely Cranbourne</option></select><select aria-label="Execution status" value={status} onChange={(e) => setStatus(e.target.value)}><option>All statuses</option><option>Completed</option><option>Queued</option><option>Paused</option><option>Stopped</option><option>Failed</option></select><span className="filter-count">{filtered.length} events</span></div>
-    <section className="card audit-table"><div className="card-header"><div><h3>Execution history</h3><p>Diagnostic journey events linked to DealerSocket opportunities.</p></div></div><div className="table-scroll"><table><thead><tr><th>Rooftop</th><th>Opportunity</th><th>Trigger</th><th>Result</th><th>Status</th><th>Time</th></tr></thead><tbody>{filtered.map((e) => <tr key={e.id}><td>{e.rooftop}</td><td>{e.opportunity}</td><td>{e.trigger}</td><td>{e.result}</td><td><span className="status-pill">{e.status}</span></td><td>{e.time}</td></tr>)}</tbody></table></div>{!filtered.length && <div className="empty-state"><Icon name="check" /><b>No matching execution events</b><span>Adjust the rooftop or status filter.</span></div>}</section>
-    <section className="card role-permissions-card"><div className="card-header"><div><h3>Pause and stop conditions</h3><p>Applied to every new-lead journey.</p></div></div>{["Customer replies and staff sends pause the journey.", "STOP, STOPALL, UNSUBSCRIBE, CANCEL, END and QUIT suppress the mobile immediately.", "Appointment, not interested, already bought and wrong number end the journey.", "Closed opportunity status and relevant CRM updates stop subsequent journey steps.", "Write-back failures retry and flag the thread without blocking SMS."].map((rule) => <div className="rule" key={rule}><span><Icon name="check" size={13} /></span>{rule}</div>)}</section>
-  </div>;
+const emptyStatus: ConnectorStatus = {
+  status: "never_connected",
+  recordsSeen: 0,
+  recordsChanged: 0,
+  recordsSent: 0,
+  errors: 0,
+  readOnly: true,
+};
+
+function displayTime(value?: string) {
+  if (!value) return "Not yet";
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("en-AU", {
+        timeZone: "Australia/Melbourne",
+        dateStyle: "medium",
+        timeStyle: "medium",
+      }).format(date)
+    : "Unavailable";
+}
+
+export function AutomationMonitoring({
+  notify,
+}: {
+  notify: (message: string) => void;
+}) {
+  const [connector, setConnector] = useState<ConnectorStatus>(emptyStatus);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const refresh = useCallback(async () => {
+    try {
+      const response = await fetch("/api/integrations/dealersocket", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(data.message || "Could not load connector status.");
+      setConnector(data as ConnectorStatus);
+      setError("");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not load connector status.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => void refresh(), 0);
+    const timer = window.setInterval(() => void refresh(), 15000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [refresh]);
+
+  const label =
+    connector.status === "healthy"
+      ? "Healthy"
+      : connector.status === "degraded"
+        ? "Degraded"
+        : connector.status === "never_connected"
+          ? "Not connected"
+          : "Offline / stale";
+
+  return (
+    <div className="page-wrap">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">DEALERSOCKET / READ-ONLY LIVE SYNC</span>
+          <h2>Connector monitoring</h2>
+          <p>
+            Fresh queue polls detect new or changed opportunities and sync them
+            into this portal.
+          </p>
+        </div>
+        <button
+          className="btn secondary"
+          disabled={loading}
+          onClick={() => {
+            setLoading(true);
+            void refresh().then(() => notify("Connector status refreshed"));
+          }}
+        >
+          <Icon name="clock" />
+          {loading ? "Refreshing" : "Refresh"}
+        </button>
+      </div>
+
+      <p className="scope-note">
+        DealerSocket access is read-only. Live-sync imports do not enrol SMS
+        journeys and DealerSocket write-back is disabled.
+      </p>
+      {error && <p className="scope-note">{error}</p>}
+
+      <div className="report-stats">
+        {[
+          {
+            name: "Connector",
+            value: label,
+            detail: connector.workerId || "No worker heartbeat received",
+          },
+          {
+            name: "Records seen",
+            value: String(connector.recordsSeen ?? 0),
+            detail: `${connector.filtersRead ?? 0} scoped queues in latest poll`,
+          },
+          {
+            name: "Changed",
+            value: String(connector.recordsChanged ?? 0),
+            detail: "New or changed since the previous fresh poll",
+          },
+          {
+            name: "Sent to portal",
+            value: String(connector.recordsSent ?? 0),
+            detail: `${connector.errors ?? 0} errors in latest poll`,
+          },
+        ].map((item) => (
+          <article className="card" key={item.name}>
+            <span>{item.name}</span>
+            <b>{item.value}</b>
+            <small>{item.detail}</small>
+          </article>
+        ))}
+      </div>
+
+      <section className="card audit-table">
+        <div className="card-header">
+          <div>
+            <h3>Latest DealerSocket poll</h3>
+            <p>
+              The prospects and conversation screens refresh automatically
+              after successful ingestion.
+            </p>
+          </div>
+          <span className="status-pill">{label}</span>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Started</th>
+                <th>Completed</th>
+                <th>Baseline</th>
+                <th>Mode</th>
+                <th>Worker</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{displayTime(connector.pollStartedAt)}</td>
+                <td>{displayTime(connector.pollCompletedAt)}</td>
+                <td>{displayTime(connector.baselineCompletedAt)}</td>
+                <td>Read-only</td>
+                <td>{connector.workerVersion || "—"}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {connector.lastError && (
+          <div className="empty-state">
+            <Icon name="close" />
+            <b>Latest connector error</b>
+            <span>{connector.lastError}</span>
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }
