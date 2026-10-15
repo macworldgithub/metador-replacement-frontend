@@ -1,0 +1,16 @@
+.prospect-source-tabs { display:flex; gap:10px; padding:24px 32px 0; flex-wrap:wrap; }
+.live-leads-meta { display:flex; flex-wrap:wrap; gap:12px 24px; margin:16px 0; color:#475467; font-size:13px; }
+.live-leads-meta label { display:flex; gap:8px; align-items:center; }
+.live-roof-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin:20px 0; }
+.live-roof-summary article { display:flex; flex-direction:column; gap:8px; padding:16px 0; border-top:1px solid #dbe2eb; }
+.live-roof-summary small { color:#667085; line-height:1.5; }
+.live-leads-table { width:100%; min-width:1050px; border-collapse:collapse; text-align:left; font-size:13px; }
+.live-leads-table th { background:#f8fafc; color:#475467; padding:14px; }
+.live-leads-table td { padding:16px 14px; border-top:1px solid #e4e7ec; vertical-align:top; max-width:300px; overflow-wrap:anywhere; }
+.live-leads-table td span,.live-leads-table td small { display:block; margin-top:6px; line-height:1.5; }
+.live-leads-table td small { color:#667085; }
+.live-leads-table details { margin-top:8px; }
+.live-leads-table details p { margin-top:6px; }
+.live-leads-page .filter-bar label { display:flex; flex-direction:column; gap:6px; font-size:12px; }
+.live-leads-page .filter-bar input { min-width:240px; padding:9px 12px; border:1px solid #dbe2eb; border-radius:6px; }
+@media(max-width:640px) { .prospect-source-tabs { padding:16px 16px 0; } .live-leads-page .section-heading { flex-wrap:wrap; gap:12px; } .live-leads-page .filter-bar { flex-wrap:wrap; } .live-leads-page .filter-bar label { width:100%; } .live-leads-page .filter-bar input { min-width:0; width:100%; } }

@@ -7,7 +7,7 @@ import { canAccessPage, roleProfiles } from "@/lib/permissions";
 import { Icon } from "./icon";
 import { Dashboard } from "./screens/dashboard";
 import { Conversations } from "./screens/conversations";
-import { Prospects } from "./screens/prospects";
+import { ProspectWorkspace } from "./screens/prospect-workspace";
 import { AdminScreen } from "./screens/admin-screens";
 import { SessionProvider, useSession } from "./auth/session-provider";
 import { logout } from "@/lib/auth";
@@ -256,7 +256,7 @@ function AuthenticatedPortal() {
             />
           )}
           {activePage === "prospects" && (
-            <Prospects
+            <ProspectWorkspace
               role={role}
               openConversation={(id) => {
                 setProspectId(id);
