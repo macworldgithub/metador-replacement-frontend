@@ -11,6 +11,7 @@ import { ProspectWorkspace } from "./screens/prospect-workspace";
 import { AdminScreen } from "./screens/admin-screens";
 import { SessionProvider, useSession } from "./auth/session-provider";
 import { logout } from "@/lib/auth";
+import { fetchNotifications, markNotificationRead, type SystemNotification } from "@/lib/notifications";
 import {
   ProspectProvider,
   useProspects,
@@ -32,10 +33,6 @@ const pageTitles: Record<string, [string, string]> = {
   journeys: [
     "Automated journey",
     "Build, version and control the new-lead SMS sequence.",
-  ],
-  templates: [
-    "Template library",
-    "Approved responses for consistent, compliant conversations.",
   ],
   reports: [
     "Journey performance",
@@ -76,6 +73,8 @@ function AuthenticatedPortal() {
   const { prospects } = useProspects();
   const unread = prospects.reduce((n, p) => n + (p.unread ?? 0), 0);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsList, setNotificationsList] = useState<SystemNotification[]>([]);
   const [page, setPage] = useState("overview");
   const [prospectId, setProspectId] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -225,7 +224,7 @@ function AuthenticatedPortal() {
             <p>{title[1]}</p>
           </div>
           <div className="top-actions">
-            <button className="notification" aria-label="Notifications">
+            <button className="notification" aria-label="Notifications" onClick={() => setNotificationsOpen(true)}>
               <Icon name="bell" />
               <span>{unread}</span>
             </button>
@@ -278,6 +277,48 @@ function AuthenticatedPortal() {
           )}
         </main>
       </div>
+      
+      {notificationsOpen && (
+        <div className="modal-backdrop">
+          <section className="modal" role="dialog" aria-modal="true" aria-label="Notifications">
+            <div className="modal-header">
+              <h3>System Notifications &amp; Alerts</h3>
+              <button className="icon-button" aria-label="Close" onClick={() => setNotificationsOpen(false)}>
+                <Icon name="close" />
+              </button>
+            </div>
+            <div style={{ maxHeight: "350px", overflowY: "auto", padding: "12px 0" }}>
+              {notificationsList.map((n) => (
+                <div key={n.key} style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <b style={{ display: "block", fontSize: "14px" }}>{n.data.title || "Notification"}</b>
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>{n.data.message}</span>
+                  </div>
+                  <button
+                    className="btn secondary"
+                    style={{ padding: "4px 8px", fontSize: "11px" }}
+                    onClick={async () => {
+                      await markNotificationRead(n.key);
+                      setNotificationsList((prev) => prev.filter((item) => item.key !== n.key));
+                      setToast("Notification marked as read");
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              ))}
+              {notificationsList.length === 0 && (
+                <div className="empty-state">
+                  <Icon name="check" />
+                  <b>No unread notifications</b>
+                  <span>Duplicate leads and close-loop handoffs will alert here.</span>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
       {profileOpen && (
         <div className="modal-backdrop">
           <section

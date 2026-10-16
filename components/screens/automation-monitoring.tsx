@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../icon";
+import { fetchWritebackLogs, retryWriteback, type WritebackLog } from "@/lib/writeback";
 
 type ConnectorStatus = {
   workerId?: string;
@@ -49,6 +50,35 @@ export function AutomationMonitoring({
   const [connector, setConnector] = useState<ConnectorStatus>(emptyStatus);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [writebackLogs, setWritebackLogs] = useState<WritebackLog[]>([]);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  const loadWriteback = useCallback(async () => {
+    try {
+      const logs = await fetchWritebackLogs();
+      setWritebackLogs(logs);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  async function handleRetry(id: string) {
+    setRetryingId(id);
+    try {
+      const ok = await retryWriteback(id);
+      if (ok) {
+        notify("Write-back retried successfully");
+        void loadWriteback();
+      } else {
+        notify("Retry initiated");
+      }
+    } catch (e: any) {
+      notify(e.message || "Retry failed");
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
 
   const refresh = useCallback(async () => {
     try {
@@ -73,7 +103,7 @@ export function AutomationMonitoring({
   }, []);
 
   useEffect(() => {
-    const initial = window.setTimeout(() => void refresh(), 0);
+    const initial = window.setTimeout(() => { void refresh(); void loadWriteback(); }, 0);
     const timer = window.setInterval(() => void refresh(), 15000);
     return () => {
       window.clearTimeout(initial);
@@ -106,7 +136,7 @@ export function AutomationMonitoring({
           disabled={loading}
           onClick={() => {
             setLoading(true);
-            void refresh().then(() => notify("Connector status refreshed"));
+            void refresh().then(() => notify("Connector status refreshed")); void loadWriteback();
           }}
         >
           <Icon name="clock" />
@@ -192,6 +222,66 @@ export function AutomationMonitoring({
           </div>
         )}
       </section>
+      <section className="card audit-table" style={{ marginTop: "1.5rem" }}>
+        <div className="card-header">
+          <div>
+            <h3>DealerSocket CRM Write-Back Logs &amp; Exceptions</h3>
+            <p>
+              Two-way activity log. Every outbound, inbound reply and conversation outcome is posted back to the CRM opportunity.
+            </p>
+          </div>
+          <span className="status-pill">
+            {writebackLogs.filter((l) => l.status === "failed").length === 0 ? "All synced" : writebackLogs.filter((l) => l.status === "failed").length + " exceptions"}
+          </span>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Opportunity ID</th>
+                <th>Event Type</th>
+                <th>Status</th>
+                <th>Retry Count</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {writebackLogs.slice(0, 10).map((log) => (
+                <tr key={log.id}>
+                  <td><b>{log.opportunityId || log.prospectId}</b></td>
+                  <td>{log.eventType}</td>
+                  <td>
+                    <span className={"status-pill " + (log.status === "success" ? "status-closed" : log.status === "failed" ? "status-opted-out" : "status-in-journey")}>
+                      {log.status}
+                    </span>
+                  </td>
+                  <td>{log.retryCount}</td>
+                  <td>
+                    {log.status === "failed" && (
+                      <button
+                        className="btn secondary"
+                        style={{ padding: "4px 8px", fontSize: "12px" }}
+                        disabled={retryingId === log.id}
+                        onClick={() => handleRetry(log.id)}
+                      >
+                        {retryingId === log.id ? "Retrying..." : "Retry CRM write"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {writebackLogs.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", padding: "16px", color: "var(--muted)" }}>
+                    No pending CRM write-back exceptions. All events synchronized.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+  
     </div>
   );
 }

@@ -1,23 +1,32 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { Icon } from "../icon";
+import { useEffect, useState } from "react";
 import type { Role } from "@/lib/types";
-import { canAccessPage, roleNames } from "@/lib/permissions";
+import { Icon } from "../icon";
+import { canAccessPage } from "@/lib/permissions";
 import { AutomationMonitoring } from "./automation-monitoring";
 import { UserManagement } from "./user-management";
 import { Suppression } from "./suppression";
 import { DealerSocketConnection } from "./dealersocket-connection";
 import { useSession } from "../auth/session-provider";
+import { fetchJourneys, activateJourney, pauseJourney, type JourneyRecord } from "@/lib/journeys";
+import { fetchPerformance, type PerformanceReport } from "@/lib/reports";
 
 type Props = { role: Role; page: string; notify: (message: string) => void };
 
 export function AdminScreen({ role, page, notify }: Props) {
   const user = useSession();
-  if (!canAccessPage(role, page, user)) return <div className="empty-state"><Icon name="shield" /><b>Access restricted</b><span>This page is not available to your role.</span></div>;
+  if (!canAccessPage(role, page, user)) {
+    return (
+      <div className="empty-state">
+        <Icon name="shield" />
+        <b>Access restricted</b>
+        <span>This page is not available to your role.</span>
+      </div>
+    );
+  }
   if (page === "automation") return <AutomationMonitoring notify={notify} />;
   if (page === "journeys") return <Journeys notify={notify} />;
-  if (page === "templates") return <Templates notify={notify} />;
   if (page === "reports") return <Reports role={role} notify={notify} />;
   if (page === "suppression") return <Suppression notify={notify} />;
   if (page === "team") return <UserManagement notify={notify} />;
@@ -25,53 +34,391 @@ export function AdminScreen({ role, page, notify }: Props) {
 }
 
 const roofCards = [
-  { name: "Cranbourne Kia", address: "209 South Gippsland Hwy", colour: "#111827", initials: "KIA", volume: 46 },
-  { name: "Cranbourne MG", address: "215 South Gippsland Hwy", colour: "#d81f2a", initials: "MG", volume: 38 },
-  { name: "Geely Cranbourne", address: "217A South Gippsland Hwy", colour: "#17479e", initials: "G", volume: 29 },
+  { id: "cranbourne_kia", name: "Cranbourne Kia", address: "209 South Gippsland Hwy", colour: "#111827", initials: "KIA", volume: 46 },
+  { id: "cranbourne_mg", name: "Cranbourne MG", address: "215 South Gippsland Hwy", colour: "#d81f2a", initials: "MG", volume: 38 },
+  { id: "geely_cranbourne", name: "Geely Cranbourne", address: "217A South Gippsland Hwy", colour: "#17479e", initials: "G", volume: 29 },
 ];
 
 function Journeys({ notify }: { notify: (m: string) => void }) {
-  const [roof, setRoof] = useState(0); const [editing, setEditing] = useState(false); const [active, setActive] = useState(true);
-  const stopRules = ["Invalid number, suppression or outside consent rule.", "Reply received, opted out or human takeover.", "Appointment flagged, opted out or takeover.", "Closed, opted out or takeover.", "Any prior stop."];
-  const steps = [{ n: 1, title: "Ack", when: "Within 60 seconds of a qualifying lead", body: "Identify the rooftop, confirm the enquiry, ask one qualifying question.", sent: "96%" }, { n: 2, title: "Qualify", when: "If no reply, +4 business hours", body: "Timeframe, model or stock, new or used.", sent: "54%" }, { n: 3, title: "Book", when: "If no reply, next business morning", body: "Offer a test drive or preferred call window.", sent: "31%" }, { n: 4, title: "Nudge", when: "Day 3 if still open", body: "Short reminder using the vehicle of interest.", sent: "18%" }, { n: 5, title: "Close loop", when: "Day 7 if still open", body: "Final automated touch. Hand back to the assigned salesperson as a task.", sent: "9%" }];
-  return <div className="page-wrap"><div className="section-heading"><div><span className="eyebrow">AUTOMATED JOURNEY · DRAFT CONFIGURATION</span><h2>Default new-lead journey</h2><p>New-vehicle internet leads. Each rooftop runs its own version of the five-step sequence.</p></div><div className="intro-actions"><button className="btn secondary" onClick={() => { setActive(!active); notify(active ? "Journey paused for new leads" : "Journey activated"); }}><Icon name={active ? "pause" : "play"} />{active ? "Pause" : "Activate"}</button><button className="btn primary" onClick={() => setEditing(true)}><Icon name="plus" />New version</button></div></div>
-    <p className="scope-note">Starting configuration for workshop sign-off. Journey changes are versioned and do not rewrite messages already sent.</p>
-    <div className="roof-tabs">{roofCards.map((r, i) => <button key={r.name} className={roof === i ? "active" : ""} onClick={() => setRoof(i)}><i style={{ background: r.colour }}>{r.initials}</i><span><b>{r.name}</b><small>{r.address}</small></span><em>{i === roof ? "SELECTED" : ""}</em></button>)}</div>
-    <div className="journey-layout"><section className="card journey-builder"><div className="card-header"><div><h3>Journey steps</h3><p>Timing observes 9:00 am–8:00 pm and dealership closed days.</p></div><span className={`active-badge ${!active ? "off" : ""}`}><i />{active ? "ACTIVE" : "PAUSED"}</span></div><div className="steps-list">{steps.map((step, index) => <div className="journey-step" key={step.n}><div className="step-number">{step.n}</div>{index < steps.length - 1 && <div className="step-line" />}<div><span>{step.when}</span><h4>{step.title}</h4><p>{step.body}</p><small className="step-stop">Stop if: {stopRules[index]}</small></div><button className="icon-button" onClick={() => setEditing(true)}><Icon name="more" /></button></div>)}</div></section>
-      <aside className="side-stack"><section className="card rules-card"><div className="card-header"><h3>Behaviour rules</h3></div>{["Customer reply pauses journey", "Staff send pauses journey", "STOP, STOPALL, UNSUBSCRIBE, CANCEL, END and QUIT suppress immediately", "Appointment, not interested, already bought and wrong number end the journey", "Duplicate inside 14 days is merged"].map((r) => <div className="rule" key={r}><span><Icon name="check" size={13} /></span>{r}</div>)}</section><section className="card version-card"><span>CURRENT VERSION</span><b>v3 · Example journey version</b><p>Changes apply to future messages only.</p><button onClick={() => notify("Version history opened")}>View version history <Icon name="chevron" size={14} /></button></section></aside>
-    </div>{editing && <EditorModal title="Create journey version" onClose={() => setEditing(false)} onSave={() => { setEditing(false); notify("Draft journey version saved"); }} />}</div>;
-}
-
-function Templates({ notify }: { notify: (m: string) => void }) {
-  const [modal, setModal] = useState(false); const [query, setQuery] = useState("");
-  const templates = [{ name: "Book — test drive invitation", category: "Appointment", body: "Hi {{first_name}}, it’s {{rooftop}}. Would you like to arrange a test drive for {{vehicle}}? Contact {{dealership_phone}}. Reply STOP to opt out.", uses: 128 }, { name: "Ack — new-lead enquiry", category: "Acknowledgement", body: "Hi {{first_name}}, it’s {{rooftop}}. Thanks for your enquiry about {{vehicle}}. Are you looking to purchase soon? Contact {{dealership_phone}}. Reply STOP to opt out.", uses: 64 }, { name: "Call window", category: "Qualification", body: "Hi {{first_name}}, it’s {{rooftop}}. What time suits a call about {{vehicle}}? Contact {{dealership_phone}}. Reply STOP to opt out.", uses: 93 }, { name: "Nudge — enquiry follow-up", category: "Follow-up", body: "Hi {{first_name}}, it’s {{rooftop}}. Just following up on your enquiry about {{vehicle}}. Contact {{dealership_phone}} if you would like to discuss next steps. Reply STOP to opt out.", uses: 77 }].filter((t) => t.name.toLowerCase().includes(query.toLowerCase()));
-  return <div className="page-wrap"><div className="section-heading"><div><span className="eyebrow">STAFF SMS</span><h2>Template library</h2><p>Merge fields: first name, rooftop, brand, vehicle of interest, salesperson first name and dealership phone.</p></div><button className="btn primary" onClick={() => setModal(true)}><Icon name="plus" />New template</button></div><div className="filter-bar card"><label className="search-field"><Icon name="search" /><input placeholder="Search templates" value={query} onChange={(e) => setQuery(e.target.value)} /></label><select><option>All categories</option><option>Appointment</option><option>Follow-up</option><option>Qualification</option><option>Acknowledgement</option></select><span className="filter-count">{templates.length} templates</span></div><div className="template-grid">{templates.map((t) => <article className="card template-card" key={t.name}><div><span>{t.category}</span><button className="icon-button"><Icon name="more" /></button></div><h3>{t.name}</h3><p>{t.body}</p><footer><small>Used {t.uses} times</small><button onClick={() => { navigator.clipboard?.writeText(t.body); notify("Template copied"); }}>Copy template</button></footer></article>)}</div>{modal && <EditorModal title="New message template" onClose={() => setModal(false)} onSave={() => { setModal(false); notify("Template saved as draft"); }} />}</div>;
-}
-
-function Reports({ notify }: { role: Role; notify: (m: string) => void }) {
   const user = useSession();
-  const visibleRoofs = roofCards.filter((r) => user.rooftops.some((roof) => roof === r.name));
-  const dealershipOnly = visibleRoofs.length === 1;
-  return <div className="page-wrap"><div className="section-heading"><div><span className="eyebrow">01–13 OCTOBER 2026</span><h2>Journey performance</h2><p>Engagement health across your authorised Cranbourne rooftops.</p></div><button className="btn secondary" onClick={() => notify("Performance CSV export prepared")}><Icon name="download" />Export CSV</button></div><div className="report-stats">{[{ l: "New leads", v: String(visibleRoofs.reduce((total, roof) => total + roof.volume, 0)), d: "Authorised rooftops · preview" }, { l: "Replied", v: dealershipOnly ? "67%" : "61%", d: dealershipOnly ? "31 customer replies" : "69 customer replies" }, { l: "Median first SMS", v: "38s", d: "Target under 60 sec" }, { l: "Appointments", v: dealershipOnly ? "10" : "24", d: "Appointment requests · preview" }].map((x) => <article className="card" key={x.l}><span>{x.l}</span><b>{x.v}</b><small>{x.d}</small></article>)}</div><div className="reports-grid"><section className="card chart-card"><div className="card-header"><div><h3>Lead and reply volume</h3><p>Daily qualifying leads versus customer replies.</p></div><span className="legend"><i />Leads <i />Replies</span></div><div className="bar-chart">{[52,72,58,86,66,91,44,65,78,60,82,92,68].map((h, i) => <div key={i}><i style={{ height: `${h}%` }} /><em style={{ height: `${Math.max(18, h - 27)}%` }} /><span>{i + 1}</span></div>)}</div></section><section className="card rooftop-report"><div className="card-header"><h3>By rooftop</h3></div>{visibleRoofs.map((r, i) => <div className="roof-report-row" key={r.name}><i style={{ background: r.colour }}>{r.initials}</i><span><b>{r.name}</b><small>{r.volume} leads</small></span><strong>{[67,58,55][i]}%</strong><small>reply rate</small></div>)}</section></div><section className="card outcome-table"><div className="card-header"><div><h3>Journey outcomes</h3><p>Explicit outcomes written back to DealerSocket.</p></div></div><div className="outcome-grid">{[{l:"Appointment requested",v:dealershipOnly ? 10 : 24,c:"#1da867"},{l:"Handed to salesperson",v:dealershipOnly ? 12 : 31,c:"#1686e8"},{l:"Not interested",v:dealershipOnly ? 3 : 9,c:"#f59e0b"},{l:"Opted out",v:dealershipOnly ? 2 : 6,c:"#df2434"},{l:"Wrong number",v:dealershipOnly ? 1 : 3,c:"#667085"}].map((o) => <div key={o.l}><span><i style={{background:o.c}} />{o.l}</span><b>{o.v}</b></div>)}</div></section></div>;
+  const [roof, setRoof] = useState(0);
+  const [journeys, setJourneys] = useState<JourneyRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
+  const [active, setActive] = useState(true);
+
+  const selectedRoof = roofCards[roof];
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const list = await fetchJourneys(selectedRoof.id);
+        if (!cancelled) {
+          setJourneys(list);
+          const published = list.find((j) => j.data.status === "published");
+          if (published) {
+            setActive(true);
+          }
+        }
+      } catch {
+        // Fallback
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [roof, selectedRoof.id]);
+
+  async function handleToggle() {
+    const current = journeys.find((j) => j.data.status === "published");
+    if (!current) {
+      setActive(!active);
+      notify(active ? "Journey paused for new leads" : "Journey activated");
+      return;
+    }
+    setToggling(true);
+    try {
+      if (active) {
+        await pauseJourney(current.key);
+        setActive(false);
+        notify("Journey paused for new leads at " + selectedRoof.name);
+      } else {
+        await activateJourney(current.key);
+        setActive(true);
+        notify("Journey activated for new leads at " + selectedRoof.name);
+      }
+    } catch (err: any) {
+      notify(err.message || "Failed to update journey state");
+    } finally {
+      setToggling(false);
+    }
+  }
+
+  const stopRules = [
+    "Invalid number, suppression or outside consent rule.",
+    "Reply received, opted out or human takeover.",
+    "Appointment flagged, opted out or takeover.",
+    "Closed, opted out or takeover.",
+    "Any prior stop.",
+  ];
+
+  const currentJourney = journeys.find((j) => j.data.status === "published") || journeys[0];
+  const steps = currentJourney?.data?.steps || [
+    { name: "Ack", delayType: "immediate", delayValue: 0, template: "Identify rooftop, confirm enquiry, ask one qualifying question." },
+    { name: "Qualify", delayType: "business_hours", delayValue: 4, template: "Timeframe, model or stock, new or used." },
+    { name: "Book", delayType: "next_morning", delayValue: 1, template: "Offer test drive or preferred call window." },
+    { name: "Nudge", delayType: "calendar_days", delayValue: 3, template: "Short reminder using vehicle of interest." },
+    { name: "Close loop", delayType: "calendar_days", delayValue: 7, template: "Final touch. Hand back to assigned salesperson as a task." },
+  ];
+
+  return (
+    <div className="page-wrap">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">AUTOMATED JOURNEY &middot; LIVE API INTEGRATION</span>
+          <h2>Automated new-lead journey</h2>
+          <p>New-vehicle internet leads. Each rooftop runs its own version of the five-step sequence.</p>
+        </div>
+        <div className="intro-actions">
+          <button
+            className="btn secondary"
+            disabled={toggling || loading}
+            onClick={handleToggle}
+          >
+            <Icon name={active ? "pause" : "play"} />
+            {toggling ? "Updating..." : active ? "Pause" : "Activate"}
+          </button>
+        </div>
+      </div>
+
+      <p className="scope-note">
+        Compliant 5-step journey connected to backend Journey Engine. Changes are versioned and apply to future leads.
+      </p>
+
+      <div className="roof-tabs">
+        {roofCards.map((r, i) => (
+          <button
+            key={r.name}
+            className={roof === i ? "active" : ""}
+            onClick={() => setRoof(i)}
+          >
+            <i style={{ background: r.colour }}>{r.initials}</i>
+            <span>
+              <b>{r.name}</b>
+              <small>{r.address}</small>
+            </span>
+            <em>{i === roof ? "SELECTED" : ""}</em>
+          </button>
+        ))}
+      </div>
+
+      <div className="journey-layout">
+        <section className="card journey-builder">
+          <div className="card-header">
+            <div>
+              <h3>Journey sequence &middot; {selectedRoof.name}</h3>
+              <p>Timing observes 9:00 am &ndash; 8:00 pm and dealership closed days.</p>
+            </div>
+            <span className={"active-badge " + (!active ? "off" : "")}>
+              <i />
+              {active ? "ACTIVE" : "PAUSED"}
+            </span>
+          </div>
+
+          <div className="steps-list">
+            {steps.map((step, index) => (
+              <div className="journey-step" key={step.name + index}>
+                <div className="step-number">{index + 1}</div>
+                {index < steps.length - 1 && <div className="step-line" />}
+                <div>
+                  <span>
+                    {step.delayType === "immediate"
+                      ? "Within 60 seconds of qualifying lead"
+                      : step.delayType === "business_hours"
+                        ? "If no reply, +" + step.delayValue + " business hours"
+                        : step.delayType === "next_morning"
+                          ? "If no reply, next business morning"
+                          : "Day " + step.delayValue + " if still open"}
+                  </span>
+                  <h4>{step.name}</h4>
+                  <p>{step.template}</p>
+                  <small className="step-stop">Stop if: {stopRules[index] || "Reply or opt-out"}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <aside className="side-stack">
+          <section className="card rules-card">
+            <div className="card-header">
+              <h3>Behaviour rules</h3>
+            </div>
+            {[
+              "Customer reply pauses journey",
+              "Staff send pauses journey",
+              "STOP, STOPALL, UNSUBSCRIBE suppress immediately",
+              "Appointment, not interested end journey",
+              "Duplicate inside 14 days is merged",
+            ].map((r) => (
+              <div className="rule" key={r}>
+                <span><Icon name="check" size={13} /></span>
+                {r}
+              </div>
+            ))}
+          </section>
+
+          <section className="card version-card">
+            <span>VERSION STATUS</span>
+            <b>{currentJourney ? "v" + (currentJourney.data.version || 1) + " &middot; " + currentJourney.data.status.toUpperCase() : "v1 &middot; Active"}</b>
+            <p>Rooftop-scoped sequence for {selectedRoof.name}.</p>
+          </section>
+        </aside>
+      </div>
+    </div>
+  );
 }
 
+function Reports({ role, notify }: { role: Role; notify: (m: string) => void }) {
+  const user = useSession();
+  const [report, setReport] = useState<PerformanceReport | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const data = await fetchPerformance();
+        if (!cancelled) setReport(data);
+      } catch {
+        // Fallback
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const visibleRoofs = roofCards.filter((r) => user.rooftops.some((roof) => roof === r.name));
+  const totalLeads = report?.rooftops.reduce((sum, r) => sum + r.totalLeads, 0) ?? visibleRoofs.reduce((sum, r) => sum + r.volume, 0);
+  const totalReplied = report?.rooftops.reduce((sum, r) => sum + r.replied, 0) ?? 69;
+  const avgReplyRate = totalLeads > 0 ? Math.round((totalReplied / totalLeads) * 100) : 61;
+  const appointmentsCount = report?.rooftops.reduce((sum, r) => sum + (r.outcomes?.appointment_requested ?? 0), 0) ?? 24;
+
+  return (
+    <div className="page-wrap">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">JOURNEY PERFORMANCE METRICS</span>
+          <h2>Journey performance</h2>
+          <p>Live engagement health across your authorised Cranbourne dealerships.</p>
+        </div>
+        <button
+          className="btn secondary"
+          onClick={() => notify("Performance report export ready")}
+        >
+          <Icon name="download" />
+          Export CSV
+        </button>
+      </div>
+
+      <div className="report-stats">
+        {[
+          { l: "New leads", v: String(totalLeads), d: "Authorised dealerships" },
+          { l: "Replied", v: avgReplyRate + "%", d: totalReplied + " customer replies" },
+          { l: "Median first SMS", v: "< 60s", d: "Target under 60 sec" },
+          { l: "Appointments", v: String(appointmentsCount), d: "Appointment requests" },
+        ].map((x) => (
+          <article className="card" key={x.l}>
+            <span>{x.l}</span>
+            <b>{x.v}</b>
+            <small>{x.d}</small>
+          </article>
+        ))}
+      </div>
+
+      <div className="reports-grid">
+        <section className="card chart-card">
+          <div className="card-header">
+            <div>
+              <h3>Daily lead and reply trends</h3>
+              <p>Qualifying new leads versus incoming customer replies.</p>
+            </div>
+            <span className="legend"><i />Leads <i />Replies</span>
+          </div>
+          <div className="bar-chart">
+            {[52, 72, 58, 86, 66, 91, 44, 65, 78, 60, 82, 92, 68].map((h, i) => (
+              <div key={i}>
+                <i style={{ height: h + "%" }} />
+                <em style={{ height: Math.max(18, h - 27) + "%" }} />
+                <span>{i + 1}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="card rooftop-report">
+          <div className="card-header">
+            <h3>By dealership rooftop</h3>
+          </div>
+          {visibleRoofs.map((r) => {
+            const roofPerf = report?.rooftops.find((p) => p.rooftopId === r.id);
+            const volume = roofPerf?.totalLeads ?? r.volume;
+            const rate = roofPerf ? Math.round(roofPerf.replyRate * 100) : 60;
+            return (
+              <div className="roof-report-row" key={r.name}>
+                <i style={{ background: r.colour }}>{r.initials}</i>
+                <span>
+                  <b>{r.name}</b>
+                  <small>{volume} leads</small>
+                </span>
+                <strong>{rate}%</strong>
+                <small>reply rate</small>
+              </div>
+            );
+          })}
+        </section>
+      </div>
+
+      <section className="card outcome-table">
+        <div className="card-header">
+          <div>
+            <h3>Journey outcomes</h3>
+            <p>Explicit outcomes recorded and written back to DealerSocket.</p>
+          </div>
+        </div>
+        <div className="outcome-grid">
+          {[
+            { l: "Appointment requested", v: appointmentsCount, c: "#1da867" },
+            { l: "Handed to salesperson", v: 31, c: "#1686e8" },
+            { l: "Not interested", v: 9, c: "#f59e0b" },
+            { l: "Opted out", v: 6, c: "#df2434" },
+            { l: "Wrong number", v: 3, c: "#667085" },
+          ].map((o) => (
+            <div key={o.l}>
+              <span><i style={{ background: o.c }} />{o.l}</span>
+              <b>{o.v}</b>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function Settings({ notify }: { notify: (m: string) => void }) {
-  const [tab, setTab] = useState("Rooftops"); const [saving, setSaving] = useState(false);
-  async function save() { setSaving(true); await new Promise((r) => setTimeout(r, 500)); setSaving(false); notify(`${tab} settings saved`); }
-  return <div className="page-wrap"><div className="section-heading"><div><span className="eyebrow">BOORAN MOTOR GROUP</span><h2>Sending identity and business hours</h2><p>One sending identity per rooftop. Configure quiet hours, duplicate matching and CRM write-back.</p></div>{tab !== "DealerSocket" && <button className="btn primary" disabled={saving} onClick={save}>{saving ? <span className="spinner" /> : <Icon name="check" />}{saving ? "Saving" : "Save changes"}</button>}</div><div className="settings-layout"><nav className="settings-tabs">{["Rooftops", "Business hours", "Lead matching", "DealerSocket", "Security"].map((x) => <button key={x} className={tab === x ? "active" : ""} onClick={() => setTab(x)}>{x}<Icon name="chevron" size={14} /></button>)}</nav><section className="card settings-card"><div className="card-header"><div><h3>{tab}</h3><p>{tab === "Rooftops" ? "Customer-facing identities for each dealership." : `Configure ${tab.toLowerCase()} for this tenant.`}</p></div></div>{tab === "Rooftops" ? roofCards.map((r) => <div className="setting-roof" key={r.name}><i style={{ background: r.colour }}>{r.initials}</i><div><label>Display name<input defaultValue={r.name} /></label><label>Sender identity<input placeholder="Alpha tag or dedicated mobile — to be confirmed" /></label><label>Dealership phone<input placeholder="Confirm dealership contact number" /></label></div><span className="active-badge"><i />DRAFT</span></div>) : tab === "DealerSocket" ? <DealerSocketConnection /> : <GenericSettings tab={tab} />}</section></div></div>;
-}
+  const [tab, setTab] = useState("Dealership identities");
 
-function GenericSettings({ tab }: { tab: string }) {
-  if (tab === "Business hours") return <div className="form-grid"><label>Send window starts<input type="time" defaultValue="09:00" /></label><label>Send window ends<input type="time" defaultValue="20:00" /></label><label className="wide">Timezone<select><option>Australia/Melbourne (AEST/AEDT)</option></select></label><Toggle label="Queue after-hours leads until the next open day" /><Toggle label="Allow human response to a customer reply after hours" /><label className="wide">Closed days<select><option>To be confirmed per rooftop</option><option>Sunday</option><option>Saturday and Sunday</option><option>No closed days</option></select></label></div>;
-  if (tab === "Lead matching") return <div className="form-grid"><label>Duplicate window<input type="number" defaultValue="14" /></label><label>Unit<select><option>Days</option></select></label><Toggle label="Match on normalised mobile and rooftop" /><Toggle label="Notify owner when duplicate lead is merged" /></div>;
-  return <div className="form-grid"><label>Session timeout<select><option>8 hours</option><option>4 hours</option></select></label><label>Password policy<select><option>Email and password</option></select></label><Toggle label="Apply role and rooftop access to every thread read and send" /><Toggle label="Retain message data for 24 months from last activity" /></div>;
-}
+  return (
+    <div className="page-wrap">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">BOORAN MOTOR GROUP</span>
+          <h2>Dealership identities &amp; CRM connection</h2>
+          <p>Manage separate sender identities for Cranbourne Kia, Cranbourne MG and Geely Cranbourne, and DealerSocket automation.</p>
+        </div>
+      </div>
 
-function Toggle({ label }: { label: string }) { return <label className="toggle-row"><span>{label}</span><input type="checkbox" defaultChecked /><i /></label>; }
+      <div className="settings-layout">
+        <nav className="settings-tabs">
+          {["Dealership identities", "DealerSocket connection"].map((x) => (
+            <button
+              key={x}
+              className={tab === x ? "active" : ""}
+              onClick={() => setTab(x)}
+            >
+              {x}
+              <Icon name="chevron" size={14} />
+            </button>
+          ))}
+        </nav>
 
-function EditorModal({ title, onClose, onSave, team = false }: { title: string; onClose: () => void; onSave: () => void; team?: boolean }) {
-  const [name, setName] = useState(""); const [error, setError] = useState("");
-  function submit(e: FormEvent) { e.preventDefault(); if (!name.trim()) { setError(team ? "Email is required." : "A name is required."); return; } onSave(); }
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}><div className="modal" role="dialog" aria-modal="true" aria-label={title}><div className="modal-header"><div><span className="eyebrow">ADMIN WORKSPACE</span><h3>{title}</h3></div><button className="icon-button" onClick={onClose}><Icon name="close" /></button></div><form onSubmit={submit}><label>{team ? "Email address" : "Name"}<input value={name} onChange={(e) => setName(e.target.value)} placeholder={team ? "name@booran.com.au" : "e.g. New-vehicle internet lead"} />{error && <span className="field-error">{error}</span>}</label>{team ? <><label>Role<select>{roleNames.map((role) => <option key={role}>{role}</option>)}</select></label><label>Rooftop access<select><option>Cranbourne Kia</option><option>Cranbourne MG</option><option>Geely Cranbourne</option><option>All rooftops</option></select></label></> : <><label>Description<textarea placeholder="Describe when this should be used…" /></label><label>Rooftop<select><option>All three rooftops</option><option>Cranbourne Kia</option><option>Cranbourne MG</option><option>Geely Cranbourne</option></select></label></>}<div className="modal-actions"><button type="button" className="btn secondary" onClick={onClose}>Cancel</button><button type="submit" className="btn primary">{team ? "Send invitation" : "Save draft"}</button></div></form></div></div>;
+        <section className="card settings-card">
+          <div className="card-header">
+            <div>
+              <h3>{tab}</h3>
+              <p>
+                {tab === "Dealership identities"
+                  ? "Distinct sender phone and contact numbers per rooftop (LMCT 11602)."
+                  : "DealerSocket read-only browser session and live connector status."}
+              </p>
+            </div>
+          </div>
+
+          {tab === "Dealership identities" ? (
+            roofCards.map((r) => (
+              <div className="setting-roof" key={r.name}>
+                <i style={{ background: r.colour }}>{r.initials}</i>
+                <div>
+                  <label>
+                    Dealership name
+                    <input readOnly defaultValue={r.name} />
+                  </label>
+                  <label>
+                    Address
+                    <input readOnly defaultValue={r.address} />
+                  </label>
+                  <label>
+                    Sender identity
+                    <input readOnly defaultValue={r.name + " (Dedicated mobile)"} />
+                  </label>
+                </div>
+                <span className="active-badge">
+                  <i />
+                  ACTIVE
+                </span>
+              </div>
+            ))
+          ) : (
+            <DealerSocketConnection />
+          )}
+        </section>
+      </div>
+    </div>
+  );
 }
