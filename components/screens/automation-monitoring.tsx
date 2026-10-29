@@ -1,287 +1,153 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../icon";
 import { fetchWritebackLogs, retryWriteback, type WritebackLog } from "@/lib/writeback";
+import { sanitizeLiveSnapshot, type LiveLeadSnapshot } from "@/lib/live-dealersocket";
 
-type ConnectorStatus = {
-  workerId?: string;
-  workerVersion?: string;
-  status: "healthy" | "degraded" | "failed" | "never_connected";
-  pollStartedAt?: string;
-  pollCompletedAt?: string;
-  intervalSeconds?: number;
-  filtersRead?: number;
-  recordsSeen: number;
-  recordsChanged: number;
-  recordsSent: number;
-  errors: number;
-  lastError?: string;
-  baselineCompletedAt?: string;
-  readOnly: boolean;
-};
+type MonitoringLog = WritebackLog & { action?: string; attempts?: number; simulated?: boolean };
 
-const emptyStatus: ConnectorStatus = {
-  status: "never_connected",
-  recordsSeen: 0,
-  recordsChanged: 0,
-  recordsSent: 0,
-  errors: 0,
-  readOnly: true,
-};
-
-function displayTime(value?: string) {
+function displayTime(value?: string | null) {
   if (!value) return "Not yet";
-  const date = new Date(value);
-  return Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat("en-AU", {
-        timeZone: "Australia/Melbourne",
-        dateStyle: "medium",
-        timeStyle: "medium",
-      }).format(date)
-    : "Unavailable";
+  return new Date(value).toLocaleString("en-AU", { timeZone: "Australia/Melbourne" });
 }
 
-export function AutomationMonitoring({
-  notify,
-}: {
-  notify: (message: string) => void;
-}) {
-  const [connector, setConnector] = useState<ConnectorStatus>(emptyStatus);
+export function AutomationMonitoring({ notify }: { notify: (message: string) => void }) {
+  const [snapshot, setSnapshot] = useState<LiveLeadSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [writebackLogs, setWritebackLogs] = useState<WritebackLog[]>([]);
+  const [writebackLogs, setWritebackLogs] = useState<MonitoringLog[]>([]);
+  const [writebackError, setWritebackError] = useState("");
+  const [writebackLoading, setWritebackLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const mounted = useRef(false);
+  const writebackPending = useRef(false);
+  const retryPending = useRef(false);
 
   const loadWriteback = useCallback(async () => {
+    if (writebackPending.current) return false;
+    writebackPending.current = true;
     try {
       const logs = await fetchWritebackLogs();
-      setWritebackLogs(logs);
-    } catch {
-      // ignore
+      if (!Array.isArray(logs) || logs.some(log => !log || typeof log.id !== "string" ||
+          !["pending", "success", "failed"].includes(log.status))) throw new Error("Invalid CRM write-back response.");
+      if (mounted.current) { setWritebackLogs(logs); setWritebackError(""); }
+      return true;
+    } catch (cause) {
+      if (mounted.current) setWritebackError(cause instanceof Error ? cause.message : "Could not load CRM write-back logs.");
+      return false;
+    } finally {
+      writebackPending.current = false;
+      if (mounted.current) setWritebackLoading(false);
     }
   }, []);
 
   async function handleRetry(id: string) {
+    if (retryPending.current) return;
+    retryPending.current = true;
     setRetryingId(id);
     try {
-      const ok = await retryWriteback(id);
-      if (ok) {
-        notify("Write-back retried successfully");
-        void loadWriteback();
-      } else {
-        notify("Retry initiated");
+      await retryWriteback(id);
+      if (mounted.current) {
+        notify("Write-back retry request processed; check the updated status.");
+        await loadWriteback();
       }
-    } catch (e: any) {
-      notify(e.message || "Retry failed");
+    } catch (cause) {
+      if (mounted.current) notify(cause instanceof Error ? cause.message : "Retry failed.");
     } finally {
-      setRetryingId(null);
+      retryPending.current = false;
+      if (mounted.current) setRetryingId(null);
     }
   }
 
-
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
-      const response = await fetch("/api/integrations/dealersocket", {
-        cache: "no-store",
-        credentials: "same-origin",
+      const response = await fetch("/api/integrations/dealersocket/leads/status", {
+        cache: "no-store", credentials: "same-origin", signal,
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok)
-        throw new Error(data.message || "Could not load connector status.");
-      setConnector(data as ConnectorStatus);
-      setError("");
+      const data = await response.json();
+      if (response.status === 401) window.dispatchEvent(new Event("booran:session-refresh"));
+      if (!response.ok) throw new Error(data.message || "Could not load connector status.");
+      const next = sanitizeLiveSnapshot(data);
+      if (!signal?.aborted) { setSnapshot(next); setError(""); }
+      return true;
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not load connector status.",
-      );
+      if (!signal?.aborted) setError(cause instanceof Error ? cause.message : "Could not load connector status.");
+      return false;
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
-
   useEffect(() => {
-    const initial = window.setTimeout(() => { void refresh(); void loadWriteback(); }, 0);
-    const timer = window.setInterval(() => void refresh(), 15000);
-    return () => {
-      window.clearTimeout(initial);
-      window.clearInterval(timer);
+    mounted.current = true;
+    const controller = new AbortController();
+    let pending = false;
+    const load = async () => {
+      if (pending || document.hidden) return;
+      pending = true;
+      try { await Promise.all([refresh(controller.signal), loadWriteback()]); } finally { pending = false; }
     };
-  }, [refresh]);
+    void load();
+    const timer = window.setInterval(() => void load(), 15000);
+    return () => { mounted.current = false; controller.abort(); window.clearInterval(timer); };
+  }, [refresh, loadWriteback]);
 
-  const label =
-    connector.status === "healthy"
-      ? "Healthy"
-      : connector.status === "degraded"
-        ? "Degraded"
-        : connector.status === "never_connected"
-          ? "Not connected"
-          : "Offline / stale";
+  const label = error ? "Connection unavailable" : !snapshot ? "Checking" :
+    snapshot.state === "running" ? "Reading leads" : snapshot.state === "error" ?
+      (snapshot.errorCode === "login_required" ? "Login required" : "Read failed") :
+      snapshot.snapshotState === "partial" ? "Partial snapshot" : snapshot.snapshotState === "complete" ? "Snapshot available" : "Waiting for first sync";
+  const hasSnapshot = snapshot?.snapshotState != null;
+  const shown = hasSnapshot ? snapshot!.records.length : null;
+  const verified = hasSnapshot ? snapshot!.records.filter(row => row.detailsVerified).length : null;
+  const scheduled = snapshot?.schedule.enabled;
 
-  return (
-    <div className="page-wrap">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">DEALERSOCKET / READ-ONLY LIVE SYNC</span>
-          <h2>Connector monitoring</h2>
-          <p>
-            Fresh queue polls detect new or changed opportunities and sync them
-            into this portal.
-          </p>
-        </div>
-        <button
-          className="btn secondary"
-          disabled={loading}
-          onClick={() => {
-            setLoading(true);
-            void refresh().then(() => notify("Connector status refreshed")); void loadWriteback();
-          }}
-        >
-          <Icon name="clock" />
-          {loading ? "Refreshing" : "Refresh"}
-        </button>
-      </div>
+  return <div className="page-wrap">
+    <div className="section-heading"><div>
+      <span className="eyebrow">DEALERSOCKET / READ-ONLY LIVE SYNC</span>
+      <h2>Connector monitoring</h2>
+      <p>Hourly reads update the live lead snapshot shown in the prospect list.</p>
+    </div><button className="btn secondary" disabled={loading} onClick={() => {
+      setLoading(true); void Promise.all([refresh(), loadWriteback()]).then(([ok]) => { if (ok && mounted.current) notify("Connector status refreshed"); });
+    }}><Icon name="clock" />{loading ? "Refreshing" : "Refresh status"}</button></div>
+    <p className="scope-note">This sync reads DealerSocket leads. It does not enrol SMS journeys, import portal conversations or write CRM records.</p>
+    {error && <p className="portal-api-error" role="alert">{error} Any snapshot below is the last result received by this screen.</p>}
+    {snapshot?.state === "error" && <p className="portal-api-error" role="alert">{snapshot.errorCode === "login_required" ?
+      "DealerSocket login is required in the connector browser." : "The latest lead read failed. The previous snapshot, if available, is retained."}</p>}
+    {(snapshot?.state === "running" || snapshot?.state === "error") && hasSnapshot &&
+      <p className="scope-note">Showing the previous snapshot from {displayTime(snapshot.fetchedAt)} while the latest attempt is {snapshot.state === "running" ? "running" : "unsuccessful"}.</p>}
+    <div className="report-stats">{[
+      {name:"Connector",value:label,detail:snapshot?.state === "running" ? "A live read is in progress; session checks pause during the read." : "Status from the active snapshot connector"},
+      {name:"Visible leads",value:shown === null ? "—" : String(shown),detail:"Records in the last saved snapshot within your access scope"},
+      {name:"Details verified",value:verified === null ? "—" : String(verified),detail:"Customer details verified during that snapshot"},
+      {name:"Server schedule",value:snapshot ? scheduled ? `Every ${snapshot.schedule.intervalSeconds / 60} minutes` : "Disabled" : "—",detail:scheduled ? `Next attempt: ${displayTime(snapshot.schedule.nextRunAt)}` : "Schedule status from connector configuration"},
+    ].map(item => <article className="card" key={item.name}><span>{item.name}</span><b>{item.value}</b><small>{item.detail}</small></article>)}</div>
+    <section className="card audit-table"><div className="card-header"><div>
+      <h3>Latest DealerSocket snapshot</h3><p>Times shown in Melbourne time. Partial coverage does not mean that every CRM lead was read.</p>
+    </div><span className="status-pill">{label}</span></div>
+      <div className="table-scroll"><table><thead><tr><th>Latest attempt started</th><th>Snapshot fetched</th><th>Snapshot completed</th><th>Read duration</th><th>Mode</th></tr></thead>
+        <tbody><tr><td>{displayTime(snapshot?.startedAt)}</td><td>{displayTime(snapshot?.fetchedAt)}</td><td>{displayTime(snapshot?.completedAt)}</td>
+          <td>{snapshot?.durationSeconds == null ? "—" : `${snapshot.durationSeconds.toFixed(1)} seconds`}</td><td>Read-only</td></tr></tbody></table></div>
+      {snapshot && hasSnapshot && <div className="empty-state"><span>{snapshot.rooftops.map(roof => `${roof.name}: ${roof.recordCount} visible leads${roof.recordCount === 0 ? " (coverage unverified)" : ""}`).join(" · ")}</span>
+        <span>{snapshot.coverageNote} {snapshot.issues.join(" ")}</span></div>}
+    </section>
 
-      <p className="scope-note">
-        DealerSocket access is read-only. Live-sync imports do not enrol SMS
-        journeys and DealerSocket write-back is disabled.
-      </p>
-      {error && <p className="scope-note">{error}</p>}
-
-      <div className="report-stats">
-        {[
-          {
-            name: "Connector",
-            value: label,
-            detail: connector.workerId || "No worker heartbeat received",
-          },
-          {
-            name: "Records seen",
-            value: String(connector.recordsSeen ?? 0),
-            detail: `${connector.filtersRead ?? 0} scoped queues in latest poll`,
-          },
-          {
-            name: "Changed",
-            value: String(connector.recordsChanged ?? 0),
-            detail: "New or changed since the previous fresh poll",
-          },
-          {
-            name: "Sent to portal",
-            value: String(connector.recordsSent ?? 0),
-            detail: `${connector.errors ?? 0} errors in latest poll`,
-          },
-        ].map((item) => (
-          <article className="card" key={item.name}>
-            <span>{item.name}</span>
-            <b>{item.value}</b>
-            <small>{item.detail}</small>
-          </article>
-        ))}
-      </div>
-
-      <section className="card audit-table">
-        <div className="card-header">
-          <div>
-            <h3>Latest DealerSocket poll</h3>
-            <p>
-              The prospects and conversation screens refresh automatically
-              after successful ingestion.
-            </p>
-          </div>
-          <span className="status-pill">{label}</span>
-        </div>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Started</th>
-                <th>Completed</th>
-                <th>Baseline</th>
-                <th>Mode</th>
-                <th>Worker</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{displayTime(connector.pollStartedAt)}</td>
-                <td>{displayTime(connector.pollCompletedAt)}</td>
-                <td>{displayTime(connector.baselineCompletedAt)}</td>
-                <td>Read-only</td>
-                <td>{connector.workerVersion || "—"}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        {connector.lastError && (
-          <div className="empty-state">
-            <Icon name="close" />
-            <b>Latest connector error</b>
-            <span>{connector.lastError}</span>
-          </div>
-        )}
-      </section>
-      <section className="card audit-table" style={{ marginTop: "1.5rem" }}>
-        <div className="card-header">
-          <div>
-            <h3>DealerSocket CRM Write-Back Logs &amp; Exceptions</h3>
-            <p>
-              Two-way activity log. Every outbound, inbound reply and conversation outcome is posted back to the CRM opportunity.
-            </p>
-          </div>
-          <span className="status-pill">
-            {writebackLogs.filter((l) => l.status === "failed").length === 0 ? "All synced" : writebackLogs.filter((l) => l.status === "failed").length + " exceptions"}
-          </span>
-        </div>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Opportunity ID</th>
-                <th>Event Type</th>
-                <th>Status</th>
-                <th>Retry Count</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {writebackLogs.slice(0, 10).map((log) => (
-                <tr key={log.id}>
-                  <td><b>{log.opportunityId || log.prospectId}</b></td>
-                  <td>{log.eventType}</td>
-                  <td>
-                    <span className={"status-pill " + (log.status === "success" ? "status-closed" : log.status === "failed" ? "status-opted-out" : "status-in-journey")}>
-                      {log.status}
-                    </span>
-                  </td>
-                  <td>{log.retryCount}</td>
-                  <td>
-                    {log.status === "failed" && (
-                      <button
-                        className="btn secondary"
-                        style={{ padding: "4px 8px", fontSize: "12px" }}
-                        disabled={retryingId === log.id}
-                        onClick={() => handleRetry(log.id)}
-                      >
-                        {retryingId === log.id ? "Retrying..." : "Retry CRM write"}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {writebackLogs.length === 0 && (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: "16px", color: "var(--muted)" }}>
-                    No pending CRM write-back exceptions. All events synchronized.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-  
-    </div>
-  );
+    <section className="card audit-table" style={{ marginTop: "1.5rem" }}>
+      <div className="card-header"><div>
+        <h3>DealerSocket CRM Write-Back Logs &amp; Exceptions</h3>
+        <p>Activity write-back records and retry results. Pending, failed or simulated records do not confirm a successful CRM update.</p>
+      </div><span className="status-pill">{writebackError ? "Unavailable" : writebackLoading ? "Loading" : `${writebackLogs.length} records`}</span></div>
+      {writebackError && <p className="portal-api-error" role="alert">{writebackError} Any displayed logs are from the last successful refresh.</p>}
+      <div className="table-scroll"><table><thead><tr><th>Opportunity ID</th><th>Event type</th><th>Status</th><th>Attempt count</th><th>Action</th></tr></thead>
+        <tbody>{writebackLogs.slice(0, 10).map(log => <tr key={log.id}>
+          <td><b>{log.opportunityId || log.prospectId || "—"}</b></td>
+          <td>{log.action || log.eventType || "—"}</td>
+          <td><span className="status-pill">{log.simulated ? "Not configured / simulated" : log.status}</span>{log.lastError && <small>{log.lastError}</small>}</td>
+          <td>{log.attempts ?? log.retryCount ?? 0}</td>
+          <td>{log.status === "failed" && <button className="btn secondary" disabled={retryingId !== null || log.simulated === true}
+            onClick={() => void handleRetry(log.id)}>{retryingId === log.id ? "Retrying…" : "Retry CRM write"}</button>}</td>
+        </tr>)}
+        {!writebackLogs.length && <tr><td colSpan={5}>{writebackError ? "Logs could not be loaded." : writebackLoading ? "Loading CRM write-back logs…" : "No CRM write-back records returned. This does not confirm that CRM write-back is configured."}</td></tr>}
+        </tbody></table></div>
+    </section>
+  </div>;
 }

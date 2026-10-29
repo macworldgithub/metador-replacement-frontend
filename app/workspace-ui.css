@@ -1,0 +1,266 @@
+/* Shared workspace presentation. Integration and permission behavior live in their components. */
+:root {
+  --ink: #182638;
+  --muted: #65758a;
+  --line: #e3e8ee;
+  --soft: #f5f7fa;
+  --red: #d81e32;
+  --red-dark: #b91628;
+}
+body { font-family: "Segoe UI", Arial, sans-serif; line-height: 1.45; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button, a { transition: background-color .15s, color .15s, border-color .15s; }
+button:disabled { opacity: .55; }
+.sidebar { background: #111d2e; border-color: #243145; }
+.brand-block { min-height: 104px; padding: 22px 20px; gap: 12px; border-color: #273345; }
+.brand-mark { width: 38px; height: 42px; border-radius: 11px; background: #d81e32; color: #fff; font-size: 24px; }
+.brand-copy strong { font-size: 14px; line-height: 1.2; letter-spacing: .8px; }
+.brand-copy span { color: #9aa9bc; font-size: 8px; letter-spacing: 1.2px; }
+.brand-block .role-chip { display: none; }
+.role-panel { padding: 20px 16px 12px; }
+.role-panel label, .nav-group > p { color: #8b9bb1; font-size: 10px; letter-spacing: 1.2px; }
+.authenticated-role { padding: 10px 12px; background: #19273a; border-color: #324056; font-size: 12px; border-radius: 9px; }
+.network-card { background: transparent; border: 0; padding: 0 3px; margin-top: 14px; gap: 7px; font-size: 10px; color: #b8c5d7; }
+.network-card span:last-child { font-size: 8px; color: #8e9eb4; }
+.main-nav { padding: 12px 12px 20px; }
+.nav-group { margin: 4px 0 24px; }
+.nav-group > p { margin: 0 14px 10px; font-weight: 600; }
+.nav-group a { height: 44px; padding: 0 14px; margin: 3px 0; border-radius: 9px; font-size: 12px; font-weight: 500; color: #c2cede; }
+.nav-group a.active { background: #283346; box-shadow: inset 3px 0 #ee5262; color: #fff; }
+.nav-group a.active svg { color: #ff8691; }
+.nav-group a:hover { background: #202e42; }
+.sidebar-footer { padding: 18px 16px; border-color: #273345; }
+.user-avatar { width: 38px; height: 38px; background: #334563; border: 1px solid #53617a; }
+.sidebar-footer .profile-trigger { font-size: 12px; }
+.topbar { padding: 0 28px; background: #fff; border-bottom-color: var(--line); }
+.title-line h1 { font-size: 20px; letter-spacing: -.5px; font-weight: 650; }
+.topbar p { font-size: 11px; color: #728095; margin-top: 3px; }
+.portal-chip { background: #f1f4f8; color: #526176; border: 1px solid #e3e8ef; font-size: 8px; padding: 4px 8px; }
+.network-button { font-size: 11px; border-radius: 9px; background: #fff; padding: 10px 12px; }
+.notification { background: #f5f7fa; border-radius: 9px; }
+.page-wrap { padding: 28px; max-width: 1600px; }
+.page-intro, .section-heading { align-items: center; margin-bottom: 25px; }
+.eyebrow { font-size: 10px; letter-spacing: 1.8px; font-weight: 700; }
+.page-intro h2, .section-heading h2 { font-size: clamp(25px, 2.2vw, 32px); letter-spacing: -.9px; line-height: 1.25; margin: 8px 0 9px; font-weight: 650; }
+.page-intro p, .section-heading p { max-width: 650px; color: var(--muted); font-size: 12px; }
+.btn { min-height: 40px; font-size: 12px; border-radius: 9px; padding: 0 16px; }
+.btn:hover { transform: none; }
+.btn.primary { box-shadow: 0 3px 7px #d81e321a; }
+.btn.secondary { border-color: #d9e0e9; color: #34445b; }
+.card, .stat-card { border-color: #e2e7ee; border-radius: 13px; box-shadow: 0 2px 4px #152a4404; }
+.stat-grid { gap: 16px; }
+.stat-card { min-height: 148px; padding: 22px; }
+.stat-card span { font-size: 10px; letter-spacing: .7px; font-weight: 650; }
+.stat-card strong { font-size: 34px; font-weight: 650; letter-spacing: -1.2px; }
+.stat-card p { font-size: 11px; color: var(--muted); }
+.stat-icon { width: 42px; height: 42px; border-radius: 11px; }
+.card-header { min-height: 77px; padding: 20px 22px; }
+.card-header h3 { font-size: 15px; font-weight: 650; }
+.card-header p { font-size: 11px; color: var(--muted); }
+.empty-state { color: #7b8899; line-height: 1.6; padding: 32px 20px; }
+.empty-state b { color: #35475e; font-size: 14px; }
+.empty-state span { font-size: 12px; }
+.scope-note { padding: 12px 15px; font-size: 11px; background: #f0f4f8; border-color: #e0e7ef; color: #5b6c82; border-radius: 9px; }
+.portal-api-error { border-radius: 9px; font-size: 12px; margin: 12px 0; }
+.prospect-source-tabs { padding: 24px 28px 0; gap: 4px; }
+.prospect-source-tabs .btn { min-height: 37px; font-size: 12px; box-shadow: none; }
+.prospect-source-tabs .btn.secondary { background: transparent; border-color: transparent; color: #65758b; }
+.prospect-source-tabs .btn.primary { background: #fff; border-color: #dce3eb; color: #bd1a2c; box-shadow: 0 2px 3px #172c4510; }
+.live-leads-meta { background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 15px 18px; gap: 10px 24px; font-size: 11px; line-height: 1.8; }
+.live-leads-meta b { color: #35475f; font-weight: 600; }
+.live-roof-summary { gap: 14px; }
+.live-roof-summary article { background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 18px; gap: 6px; box-shadow: inset 0 3px #d81e32; }
+.live-roof-summary article b { font-size: 13px; color: #203249; }
+.live-roof-summary article span { font-size: 12px; color: #66788f; }
+.live-roof-summary small { font-size: 10px; }
+.filter-bar, .prospect-filters { padding: 17px; gap: 14px; }
+.live-leads-page .filter-bar input, .filter-fields select { min-height: 40px; background: #f9fafc; border-color: #dce3eb; border-radius: 8px; font-size: 12px; }
+.table-scroll { border-radius: 12px; }
+table th { font-weight: 600; font-size: 10px; letter-spacing: .5px; color: #66778c; }
+table td { font-size: 12px; }
+tbody tr:hover { background: #fafbfd; }
+.live-leads-table th { background: #f8fafc; padding: 16px; }
+.live-leads-table td { padding: 18px 16px; border-color: #edf0f4; }
+.live-leads-table td b { font-weight: 600; color: #24384f; }
+.live-leads-table td span { font-size: 11px; color: #687c92; }
+.live-leads-table td small { display: inline-block; background: #f0f4f8; padding: 3px 7px; border-radius: 5px; font-size: 9px; }
+.live-leads-table summary { color: #7a8799; font-size: 10px; }
+.status-pill { font-size: 10px; border-radius: 6px; padding: 5px 8px; }
+
+/* Three independent panes keep the message composer visible at every viewport size. */
+.conversation-layout { grid-template-columns: 280px minmax(0, 1fr) 290px; }
+.thread-panel { background: #f6f8fb; }
+.inbox-panel, .detail-panel { border-color: #e4e9f0; }
+.panel-title { min-height: 85px; padding: 20px 18px; }
+.panel-title h2 { font-size: 17px; font-weight: 650; letter-spacing: -.3px; }
+.panel-title span { display: block; margin-top: 4px; font-size: 11px; color: #7b899b; }
+.icon-button { border-color: #e1e7ee; border-radius: 8px; color: #65768e; }
+.inbox-tools { display: flex; flex-wrap: wrap; padding: 14px; gap: 8px; }
+.inbox-tools .search-field { flex: 1 1 100%; background: #f7f9fc; border-color: #e2e7ef; font-size: 12px; }
+.inbox-tools select { max-width: none; width: 100%; height: 33px; font-size: 11px; border-color: #e1e7ef; }
+.inbox-list > button { min-height: 115px; padding: 17px 15px; border-color: #edf0f5; gap: 10px; }
+.inbox-list > button.selected { background: #fff5f6; box-shadow: inset 3px 0 #d81e32; }
+.inbox-copy b { font-size: 12px; font-weight: 650; }
+.inbox-copy p { font-size: 11px; line-height: 1.6; color: #677a92; }
+.avatar { width: 36px; height: 36px; border-radius: 10px; background: #eaf0f7; color: #3a506d; font-size: 11px; }
+.thread-header { min-height: 85px; padding: 16px 22px; gap: 12px; background: #fff; }
+.thread-header > div:nth-of-type(2) { min-width: 0; }
+.thread-header h2 { font-size: 17px; font-weight: 650; letter-spacing: -.3px; overflow-wrap: anywhere; }
+.thread-header p { color: #738399; font-size: 11px; margin-top: 4px; }
+.rooftop-pill { font-size: 9px; font-weight: 600; padding: 6px 8px; border-radius: 6px; background: #f1f4f8; color: #52677f; white-space: nowrap; }
+.journey-bar { min-height: 60px; padding: 12px 22px; background: #fff9ed; border-color: #f2e9d6; gap: 12px; }
+.journey-bar p { color: #8a785b; font-size: 10px; }
+.journey-bar button { min-height: 32px; flex-shrink: 0; border-color: #e7dac1; border-radius: 7px; font-size: 11px; }
+.live-status { font-size: 9px; letter-spacing: .8px; }
+.messages { padding: 24px; scrollbar-width: thin; scrollbar-color: #d3dce7 transparent; }
+.system-event { max-width: 96%; display: flex; flex-wrap: wrap; margin: 10px auto 18px; font-size: 10px; color: #7e8da1; line-height: 1.6; }
+.system-event time { font-size: 9px; }
+.bubble { max-width: 85%; border-radius: 13px; padding: 14px 16px; border-color: #e0e7ef; box-shadow: 0 2px 3px #102b4604; }
+.bubble p { font-size: 13px; line-height: 1.7; }
+.bubble b { font-size: 11px; }
+.bubble small { font-size: 10px; }
+.outbound .bubble { background: #21374f; border-color: #21374f; }
+.internal-note { background: #fffbed; border-color: #eee1ae; font-size: 12px; padding: 14px; }
+.composer { padding: 16px 22px 18px; border-top-color: #dfe6ef; background: #fff; box-shadow: 0 -4px 18px #18314e04; }
+.composer-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+.composer-heading > div { display: flex; align-items: center; gap: 8px; color: #344a65; }
+.composer-heading h3 { font-size: 13px; font-weight: 650; margin: 0; }
+.composer-heading > span { color: #77889b; font-size: 10px; }
+.sender-identity { margin: 0 0 10px; font-size: 10px; line-height: 1.5; color: #718198; }
+.composer-tabs { gap: 4px; margin-bottom: 10px; }
+.composer-tabs button { font-size: 11px; padding: 6px 10px; border-radius: 6px; }
+.composer-tabs button.active { color: #bd1930; background: #fff0f2; }
+.composer textarea { min-height: 72px; max-height: 110px; padding: 12px; border: 1px solid #dce3ed; border-radius: 9px; background: #fbfcfe; font-size: 13px; line-height: 1.6; }
+.composer textarea:focus { background: #fff; border-color: #b2bfce; }
+.composer-footer { margin-top: 10px; gap: 10px; }
+.composer-footer span { font-size: 9px; color: #8290a2; }
+.send-button { height: 38px; padding: 0 17px; border-radius: 8px; font-size: 12px; flex-shrink: 0; }
+.send-button:not(:disabled):hover { background: #b91628; }
+.detail-heading { height: 62px; flex-shrink: 0; padding: 0 18px; }
+.detail-heading h3 { font-size: 12px; font-weight: 600; color: #53677f; }
+.profile-card { padding: 23px 18px; }
+.large-avatar { width: 50px; height: 50px; border-radius: 14px; background: #eaf0f7; color: #3e5574; margin-bottom: 12px; }
+.profile-card > b { font-size: 14px; font-weight: 650; }
+.profile-card > span { font-size: 11px; }
+.detail-section { padding: 20px 18px; border-color: #edf0f4; }
+.detail-section h4 { font-size: 9px; font-weight: 650; letter-spacing: 1.2px; color: #8a98aa; margin-bottom: 16px; }
+.detail-row { font-size: 11px; margin: 11px 0; gap: 10px; }
+.detail-row b { font-weight: 500; overflow-wrap: anywhere; min-width: 0; }
+.portal-detail-form label { color: #6d8097; font-size: 11px; }
+.portal-detail-form input, .portal-detail-form select, .portal-detail-form textarea { font-size: 12px; padding: 9px 10px; border-color: #dce4ed; border-radius: 7px; }
+.portal-detail-form button { min-height: 36px; font-size: 11px; border-radius: 7px; background: #f4f7fb; color: #40556f; }
+
+@media (min-width: 1181px) and (max-width: 1420px) {
+  .conversation-layout { grid-template-columns: 240px minmax(0, 1fr) 250px; }
+  .thread-header { padding: 14px 16px; }
+  .thread-header .rooftop-pill { display: none; }
+  .composer { padding: 14px 16px; }
+}
+@media (min-width: 681px) and (max-width: 1180px) {
+  .conversation-layout { grid-template-columns: 240px minmax(0, 1fr); }
+  .detail-panel { width: 300px; }
+  .thread-header .rooftop-pill { display: none; }
+  .composer { padding: 14px 16px; }
+}
+@media (max-width: 900px) {
+  .topbar { padding: 0 20px; }
+  .page-wrap { padding: 24px 20px; }
+  .portal-chip { display: none; }
+  .prospect-source-tabs { padding: 20px 20px 0; }
+}
+@media (max-width: 680px) {
+  .topbar { padding: 0 14px; gap: 10px; }
+  .title-line h1 { font-size: 17px; }
+  .network-button { display: none; }
+  .page-wrap { padding: 22px 16px; }
+  .page-intro h2, .section-heading h2 { font-size: 26px; }
+  .page-intro, .section-heading { gap: 16px; align-items: stretch; }
+  .stat-grid { gap: 10px; }
+  .stat-card { padding: 16px; min-height: 136px; }
+  .stat-card strong { font-size: 30px; }
+  .stat-icon { width: 32px; height: 32px; }
+  .prospect-source-tabs { padding: 18px 16px 0; }
+  .live-leads-meta { flex-direction: column; gap: 8px; padding: 14px; }
+  .live-roof-summary { gap: 10px; }
+  .live-roof-summary article { padding: 16px; }
+  .thread-header { min-height: 76px; padding: 12px; gap: 9px; }
+  .thread-header h2 { font-size: 15px; }
+  .thread-header p { font-size: 10px; }
+  .journey-bar { padding: 10px 14px; min-height: 56px; }
+  .messages { padding: 16px 14px; }
+  .composer { padding: 12px 14px 14px; }
+  .composer-heading { margin-bottom: 7px; }
+  .composer-heading h3 { font-size: 12px; }
+  .composer-heading > span { font-size: 9px; }
+  .sender-identity { font-size: 9px; margin-bottom: 8px; }
+  .composer textarea { min-height: 64px; font-size: 16px; }
+  .composer-footer > div span { display: none; }
+  .composer-footer { justify-content: flex-end; }
+  .send-button { min-width: 106px; height: 40px; }
+  .detail-panel { width: 100%; }
+  .thread-header .mobile-back { padding: 0 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button, a { transition: none; }
+}
+
+/* Live dealership identities have fields and a badge, with no leading icon. */
+.settings-card .setting-roof{grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:start}
+.settings-card .setting-roof>div{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px}
+.settings-card .setting-roof label{min-width:0;font-size:12px;line-height:1.5}
+.settings-card .setting-roof input{min-width:0;font-size:13px}
+.settings-card .setting-roof p{grid-column:1/-1;margin:0;font-size:13px;line-height:1.6;color:#536a85;overflow-wrap:anywhere}
+.settings-card .setting-roof>.active-badge{grid-column:2;justify-self:end;align-self:start}
+.settings-layout{grid-template-columns:220px minmax(0,1fr)}
+@media(max-width:1100px){
+  .settings-layout{grid-template-columns:minmax(0,1fr)}
+  .settings-layout .settings-tabs{display:flex;flex-direction:row;flex-wrap:wrap}
+}
+@media(max-width:640px){
+  .settings-card .setting-roof{grid-template-columns:minmax(0,1fr);gap:16px}
+  .settings-card .setting-roof>.active-badge{grid-column:1;grid-row:1;justify-self:start}
+  .settings-card .setting-roof>div{grid-template-columns:minmax(0,1fr)}
+}
+
+.dealership-settings .settings-layout{display:block}
+.dealership-settings .settings-tabs{display:flex;flex-direction:row;gap:8px;margin-bottom:20px;overflow:visible;flex-wrap:wrap}
+.dealership-settings .settings-tabs button{height:44px;padding:0 18px;border:1px solid var(--line);background:white;font-size:13px}
+.dealership-settings .settings-tabs button.active{background:#182638;border-color:#182638;color:white}
+.dealership-settings .settings-card{min-width:0;background:transparent;border:0;box-shadow:none;overflow:visible}
+.dealership-settings .settings-card>.card-header{padding:0 0 16px;min-height:0;border:0}
+.identity-list{display:grid;gap:18px}
+.identity-card{background:white;border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0}
+.identity-header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:22px 24px;border-bottom:1px solid var(--line)}
+.identity-header h4{margin:5px 0 0;font-size:18px;font-weight:650;color:var(--ink)}
+.identity-header .eyebrow{color:var(--muted);font-size:9px}
+.identity-header .active-badge{flex-shrink:0}
+.identity-details{display:grid;grid-template-columns:2fr 1fr 1fr;gap:24px;padding:24px;margin:0}
+.identity-details>div{min-width:0}
+.identity-details dt,.identity-hours span{display:block;font-size:12px;color:var(--muted);margin-bottom:7px}
+.identity-details dd{margin:0;font-size:14px;color:var(--ink);overflow-wrap:anywhere;line-height:1.6}
+.identity-hours{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;background:#f8fafc;border-top:1px solid var(--line);padding:18px 24px}
+.identity-hours strong{font-size:13px;color:#33475f;font-weight:600;overflow-wrap:anywhere}
+.dealership-settings .scope-note{margin:18px 0;line-height:1.6}
+@media(max-width:800px){.identity-details{grid-template-columns:repeat(2,minmax(0,1fr))}.identity-address{grid-column:1/-1}}
+@media(max-width:480px){.identity-header{align-items:flex-start;flex-direction:column;padding:18px}.identity-details{grid-template-columns:minmax(0,1fr);padding:18px;gap:18px}.identity-hours{grid-template-columns:minmax(0,1fr);padding:18px;gap:16px}.identity-header h4{font-size:17px}.dealership-settings .settings-tabs button{flex:1;padding:0 12px;font-size:12px}}
+
+/* Connection settings: scoped to avoid affecting the portal dashboard. */
+.dealersocket-panel{padding:24px;background:white;border:1px solid var(--line);border-radius:12px;min-width:0;font-size:13px;line-height:1.65;color:#536a85}
+.dealersocket-panel .connection-banner{margin:0 0 20px;padding:18px 20px;border:1px solid #e0e6ee;border-radius:10px;background:#f4f7fb}
+.dealersocket-panel .connection-banner b{font-size:16px;color:var(--ink)}
+.dealersocket-panel .connection-banner p{margin:5px 0 0;font-size:13px}
+.dealersocket-panel .connection-state-connected{background:#edf9f3;border-color:#c6e9d7}
+.dealersocket-panel .connection-state-error,.dealersocket-panel .connection-state-login_required{background:#fff5ee;border-color:#f2d6bd}
+.dealersocket-panel .connection-state-working{background:#eff6ff;border-color:#cfdef3}
+.dealersocket-panel>p{margin:16px 0;max-width:900px}
+.dealersocket-panel .intro-actions{display:flex;gap:10px;align-items:center}
+.dealersocket-panel .btn{font-size:12px;min-height:42px;white-space:normal;height:auto;padding:10px 16px}
+.connection-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:24px 0;gap:20px;padding:20px;background:#f8fafc;border:1px solid var(--line);border-radius:10px}
+.connection-details dt{font-size:11px;color:var(--muted);margin-bottom:8px}
+.connection-details dd{margin:0;color:var(--ink);font-size:13px;overflow-wrap:anywhere}
+.dealersocket-panel h4{font-size:14px;color:var(--ink);margin:24px 0 12px;font-weight:650}
+.dealersocket-panel ul{list-style:none;padding:0;margin:0;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.dealersocket-panel li{padding:13px 16px;font-size:13px;border-bottom:1px solid var(--line)}
+.dealersocket-panel li:last-child{border:0}
+.dealersocket-panel>.scope-note{max-width:none;margin:20px 0 0;font-size:12px;line-height:1.7}
+@media(max-width:760px){.connection-details{grid-template-columns:minmax(0,1fr)}.dealersocket-panel{padding:18px}.dealersocket-panel .intro-actions{align-items:stretch}.dealersocket-panel .intro-actions .btn{flex:1 1 180px}}

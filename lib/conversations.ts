@@ -88,7 +88,7 @@ export function mapProspect(api: ApiProspect): LiveProspect {
     .join(" ");
   return {
     id: api.id,
-    name,
+    name: api.id.startsWith('sms_test_') || /^SMS-TEST-/i.test(api.dealerSocketOpportunityId) ? `${name} [TEST]` : name,
     initials: name
       .split(" ")
       .map((p) => p[0])

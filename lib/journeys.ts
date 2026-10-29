@@ -17,6 +17,8 @@ export type JourneyRecord = {
     steps: JourneyStep[];
     status: "draft" | "published";
     version?: number;
+    isCurrent?: boolean;
+    enabled?: boolean;
     publishedAt?: string;
     publishedBy?: string;
   };

@@ -56,14 +56,14 @@ test('DealerSocket browser actions require same Origin and supported paths', asy
 });
 test('DealerSocket status/check/login forward only portal authentication and whitelist response', async t => {
   const calls = upstream(t, 'group_admin', { ...snapshot, cookies: ['private'], token: 'secret' });
-  for (const [method, segments] of [['GET', ['status']], ['POST', ['check']], ['POST', ['login', 'start']]]) {
+  for (const [method, segments] of [['GET', ['status']], ['POST', ['check']], ['POST', ['login', 'start']], ['POST', ['login','automatic','start']]]) {
     const response = await handleDealerSocket(request(method), segments);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), snapshot);
     assert.equal(response.headers.get('cache-control'), 'no-store');
   }
-  assert.equal(calls.length, 6);
-  assert.equal(calls[5].url, 'http://localhost:3000/api/integrations/dealersocket/login/start');
+  assert.equal(calls.length, 8);
+  assert.equal(calls[7].url, 'http://localhost:3000/api/integrations/dealersocket/login/automatic/start');
   assert.equal(calls[5].init.headers.Authorization, 'Bearer portal-test');
   assert.equal(calls[5].init.headers['X-Connector-Key'], undefined);
 });
@@ -71,6 +71,14 @@ test('DealerSocket proxy rejects malformed connector data', async t => {
   upstream(t, 'group_admin', { ...snapshot, rooftops: [] });
   assert.equal((await handleDealerSocket(request(), ['status'])).status, 502);
   assert.throws(() => sanitizeDealerSocket({ ...snapshot, lastConnectedAt: 'bad-date' }));
+});
+
+test('DealerSocket proxy preserves read activity and original check timestamps', async t => {
+  const reading={...snapshot,state:'connecting',operation:'read',message:'Lead read in progress. Session checks resume when it finishes.'};
+  upstream(t,'group_admin',reading);
+  const response=await handleDealerSocket(request(),['status']);
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),reading);
 });
 test('DealerSocket upstream secrets are not echoed on service failures', async t => {
   upstream(t, 'group_admin', { message: 'secret-token-value' }, 503);

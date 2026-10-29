@@ -31,14 +31,14 @@ export function LiveDealerSocketLeads() {
     return sanitizeLiveSnapshot(result);
   },[]);
   const refresh = useCallback(async () => {
-    if(!admin || posting.current) return;
+    if(!admin || posting.current || snapshot?.state==='running') return;
     posting.current = true;
     const requestId = ++sequence.current;
     setBusy(true);setError('');
     try { const result=await api(true);if(mounted.current && requestId===sequence.current) setSnapshot(result); }
     catch(cause) { if(mounted.current) { setError(cause instanceof Error?cause.message:'Refresh failed.');nextRead.current=Date.now()+30000; } }
     finally { posting.current=false;if(mounted.current)setBusy(false); }
-  },[admin,api]);
+  },[admin,api,snapshot?.state]);
   useEffect(() => {
     mounted.current=true;
     const controller=new AbortController();
@@ -50,7 +50,7 @@ export function LiveDealerSocketLeads() {
       try {
         const result=await api(false,controller.signal);
         if(!controller.signal.aborted && requestId===sequence.current) { setSnapshot(result);setError('');if(result.state==='error')setAutomatic(false); }
-      } catch(cause) { if(!controller.signal.aborted) { setError(cause instanceof Error?cause.message:'Cannot load live leads.');setAutomatic(false); } }
+      } catch(cause) { if(!controller.signal.aborted && requestId===sequence.current) { setError(cause instanceof Error?cause.message:'Cannot load live leads.');setAutomatic(false); } }
       finally { loading=false; }
     };
     void load();
@@ -70,6 +70,7 @@ export function LiveDealerSocketLeads() {
   const completed=snapshot && snapshot.snapshotState !== null;
   return <div className="page-wrap live-leads-page">
     <div className="section-heading"><div><span className="eyebrow">DEALERSOCKET · READ ONLY</span><h2>Live dealership leads</h2><p>Current records from accessible dealership queues. These records are not enrolled in SMS journeys.</p></div>
+      {admin && <button className="btn primary" disabled={!!running} onClick={()=>void refresh()}>{running?'Reading DealerSocket…':'Fetch latest leads'}</button>}
     </div>
     <div className="live-leads-meta"><span>Last snapshot (Melbourne): <b>{time(snapshot?.fetchedAt ?? null)}</b></span>
       {snapshot?.durationSeconds !== null && snapshot?.durationSeconds !== undefined && <span>Read duration: {snapshot.durationSeconds.toFixed(1)} seconds</span>}
@@ -79,7 +80,7 @@ export function LiveDealerSocketLeads() {
     {error && <p className="portal-api-error" role="alert">{error}</p>}
     {running && <p className="scope-note" role="status">{stages[snapshot?.progress || ''] || 'Reading DealerSocket'}. This may take a minute or longer; results appear when the read completes.</p>}
     {snapshot?.state==='error' && <p className="portal-api-error" role="alert">{snapshot.errorCode==='login_required'?'DealerSocket login is required on the automation PC.':'The last snapshot could not be verified. Check the connector and try again.'}</p>}
-    {snapshot?.state==='idle' && <p className="scope-note">No snapshot is available yet. {snapshot.schedule.enabled?'Leads will appear after the first scheduled sync completes.':'Server sync is disabled. An administrator can enable it in the connector configuration.'}</p>}
+    {snapshot?.state==='idle' && <p className="scope-note">No snapshot is available yet. {admin?'Choose Fetch latest leads to start a read. ':''}{snapshot.schedule.enabled?'Leads will also refresh on the server schedule.':'Server sync is disabled.'}</p>}
     {completed && <>
       {(running || snapshot.state==='error') && <p className="scope-note">Showing the previous snapshot from {time(snapshot.fetchedAt)}. These results have not been refreshed yet.</p>}
       <div className="live-roof-summary">{snapshot.rooftops.map(item=><article key={item.id}><b>{item.name}</b><span>{item.recordCount} visible {item.recordCount===1?'record':'records'}{item.matchedCandidateCount!==null?` / ${item.matchedCandidateCount} matching candidates`:''}</span>

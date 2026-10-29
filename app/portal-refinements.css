@@ -37,8 +37,8 @@ body { font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antial
 .network-card { font-size: 10px; }
 .network-card span:last-child { font-size: 8px; letter-spacing: .4px; }
 .main-nav { padding-bottom: 18px; flex: 1; }
-.nav-group button { font-size: 12px; }
-.nav-group button svg { flex-shrink: 0; }
+.nav-group a { font-size: 12px; }
+.nav-group a svg { flex-shrink: 0; }
 .dashboard-grid { grid-template-columns: minmax(0, 1.55fr) minmax(305px, 1fr); }
 .dashboard-grid > .side-stack { display: flex; }
 .reply-row { display: flex; width: 100%; align-items: center; gap: 13px; padding: 21px; border: 0; border-bottom: 1px solid #e8edf3; background: white; text-align: left; }

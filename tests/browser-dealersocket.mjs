@@ -28,6 +28,7 @@ try {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   let state = 'disconnected';
+  let readingSession = false;
   let leadState = 'partial';
   let serverScheduled = false;
   let viewer = 'group_admin';
@@ -39,7 +40,7 @@ try {
     if (url.pathname === '/api/auth/me') body = { user: {
       id: 'fixture-admin', email: 'admin@example.test', name: 'Fixture Admin', role: viewer==='group_admin'?'Super Admin':'Dealership Manager', apiRole: viewer,
       rooftopIds: roofs.map(r => r[0]), rooftops: roofs.map(r => r[1]), isActive: true,
-      permissions: viewer==='group_admin'?['overview', 'settings','conversations']:['overview','conversations'], ownProspectsOnly: false,
+      permissions: viewer==='group_admin'?['overview', 'settings','conversations','automation']:['overview','conversations'], ownProspectsOnly: false,
     } };
     else if (url.pathname.startsWith('/api/integrations/dealersocket/')) {
       const action = url.pathname.split('/dealersocket/')[1];
@@ -62,7 +63,7 @@ try {
       }
       if (route.request().method() === 'POST') {
         actions.push(action);
-        state = action === 'login/start' ? 'connected' : 'login_required';
+        state = ['login/start','login/automatic/start'].includes(action) ? 'connected' : 'login_required';
       }
       body = { state, operation: null, lastCheckedAt: '2026-10-15T09:00:00Z',
         lastConnectedAt: state === 'connected' ? '2026-10-15T09:00:00Z' : null,
@@ -70,18 +71,29 @@ try {
         interactiveLoginEnabled: true, sessionExpiresAt: null,
         rooftops: roofs.map(([id, name]) => ({ id, name, verified: state === 'connected' })),
       };
+      if(readingSession) Object.assign(body,{state:'connecting',operation:'read',
+        message:'Lead read in progress. Session checks resume when it finishes.',
+        rooftops:roofs.map(([id,name])=>({id,name,verified:false}))});
     } else body = [];
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
   await page.goto(base);
-  await page.getByRole('button', { name: 'Dealership settings', exact: true }).click();
-  await page.getByRole('button', { name: 'DealerSocket', exact: true }).click();
+  await page.getByRole('link', { name: 'Dealership settings', exact: true }).click();
+  await page.getByRole('button', { name: 'DealerSocket connection', exact: true }).click();
   await page.getByRole('button', { name: 'Check connection', exact: true }).click();
   await page.getByText('Login required', { exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Open login on automation PC', exact: true }).click();
+  await page.getByRole('button', { name: 'Log in automatically · Show Chrome', exact: true }).click();
   await page.getByText('Connected', { exact: true }).waitFor();
-  assert.deepEqual(actions, ['check', 'login/start']);
+  assert.deepEqual(actions, ['check', 'login/automatic/start']);
+  await page.getByRole('button', { name: 'Open manual login', exact: true }).click();
+  assert.deepEqual(actions, ['check', 'login/automatic/start', 'login/start']);
   assert.equal(await page.getByText(/Explicit dealership label observed/).count(), 3);
+  readingSession=true;
+  await page.getByText('Lead read in progress',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Check connection',exact:true}).isDisabled(),true);
+  assert.equal(await page.getByRole('button',{name:'Log in automatically · Show Chrome',exact:true}).isDisabled(),true);
+  readingSession=false;
+  await page.getByText('Connected',{exact:true}).waitFor();
   mkdirSync(path.join(root, 'test-results'), { recursive: true });
   await page.screenshot({ path: path.join(root, 'test-results/dealersocket-desktop.png'), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -89,11 +101,14 @@ try {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'No mobile horizontal overflow');
   await page.screenshot({ path: path.join(root, 'test-results/dealersocket-mobile.png'), fullPage: true });
   await page.setViewportSize({width:1440,height:1000});
-  await page.getByRole('button',{name:'Prospect list',exact:true}).click();
+  await page.getByRole('link',{name:'Prospect list',exact:true}).click();
   await page.getByRole('heading',{name:'Live dealership leads',exact:true}).waitFor();
-  assert.equal(await page.getByRole('button',{name:'Fetch latest leads',exact:true}).count(),0);
+  await page.getByRole('button',{name:'Fetch latest leads',exact:true}).click();
+  await page.getByRole('button',{name:'Reading DealerSocket…',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Reading DealerSocket…',exact:true}).isDisabled(),true);
+  await page.getByRole('button',{name:'Fetch latest leads',exact:true}).waitFor();
   await page.getByText('Synthetic Live Lead',{exact:true}).waitFor();
-  assert.equal(actions.filter(action=>action==='leads/read').length,0);
+  assert.equal(actions.filter(action=>action==='leads/read').length,1);
   await page.getByLabel('Search leads',{exact:true}).fill('does-not-exist');
   await page.getByText('No records match the permitted scope and selected filters.',{exact:true}).waitFor();
   await page.getByLabel('Search leads',{exact:true}).fill('');
@@ -109,7 +124,7 @@ try {
   leadState='running';
   await page.setViewportSize({width:1440,height:1000});
   await page.reload();
-  await page.getByRole('button',{name:'Prospect list',exact:true}).click();
+  await page.getByRole('link',{name:'Prospect list',exact:true}).click();
   await page.getByText(/Server sync: every 60 minutes/).waitFor();
   await page.getByText(/Showing the previous snapshot/).waitFor();
   await page.getByText('Synthetic Live Lead',{exact:true}).waitFor();
@@ -118,10 +133,19 @@ try {
   await page.getByText('DealerSocket login is required on the automation PC.',{exact:true}).waitFor();
   await page.getByText('Synthetic Live Lead',{exact:true}).waitFor();
   leadState='partial';
+  await page.getByRole('link',{name:'Automation monitoring',exact:true}).click();
+  await page.getByRole('heading',{name:'Connector monitoring',exact:true}).waitFor();
+  await page.getByText('Every 60 minutes',{exact:true}).waitFor();
+  await page.getByText('Visible leads',{exact:true}).waitFor();
+  await page.getByRole('heading',{name:'DealerSocket CRM Write-Back Logs & Exceptions',exact:true}).waitFor();
+  await page.getByText('No CRM write-back records returned. This does not confirm that CRM write-back is configured.',{exact:true}).waitFor();
+  assert.equal(await page.getByText('No worker heartbeat received',{exact:true}).count(),0);
+  assert.equal(await page.getByText('Sent to portal',{exact:true}).count(),0);
+  await page.screenshot({path:path.join(root,'test-results/connector-monitoring.png'),fullPage:true});
   viewer='read_only';
   await page.setViewportSize({width:1440,height:1000});
   await page.reload();
-  await page.getByRole('button',{name:'Prospect list',exact:true}).click();
+  await page.getByRole('link',{name:'Prospect list',exact:true}).click();
   await page.getByText('Synthetic Live Lead',{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'Fetch latest leads',exact:true}).count(),0);
   assert.equal(await page.getByRole('checkbox',{name:/Automatically refresh/}).count(),0);

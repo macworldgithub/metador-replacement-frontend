@@ -8,11 +8,15 @@ export type RooftopPerformance = {
   medianFirstSmsSeconds: number | null;
   failedSends: number;
   outcomes: Record<string, number>;
+  optedOut: number;
 };
 
 export type PerformanceReport = {
   generatedAt: string;
   rooftops: RooftopPerformance[];
+  excludedTestRecords: number;
+  medianFirstSmsSeconds: number | null;
+  daily: { date: string; leads: number; replies: number }[];
 };
 
 export async function fetchPerformance(rooftopId?: string): Promise<PerformanceReport> {

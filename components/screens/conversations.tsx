@@ -19,8 +19,9 @@ type Props = {
   initialProspectId?: string;
   role: Role;
   notify: (message: string) => void;
+  onSelectProspect?: (id: string) => void;
 };
-export function Conversations({ initialProspectId = "", role, notify }: Props) {
+export function Conversations({ initialProspectId = "", role, notify, onSelectProspect }: Props) {
   const user = useSession();
   const { prospects, loading, error: listError, refresh } = useProspects();
   const [chosen, setChosen] = useState(initialProspectId);
@@ -102,6 +103,7 @@ export function Conversations({ initialProspectId = "", role, notify }: Props) {
   }, [thread?.events.length]);
   function select(id: string) {
     if (busy) return;
+    if (onSelectProspect) { onSelectProspect(id); return; }
     setChosen(id);
     setDraft("");
     setNotes("");
@@ -436,6 +438,10 @@ export function Conversations({ initialProspectId = "", role, notify }: Props) {
               className={`composer ${noteMode ? "note-composer" : ""}`}
               onSubmit={send}
             >
+              <div className="composer-heading">
+                <div><Icon name={noteMode ? "note" : "message"} size={17} /><h3>{noteMode ? "Add an internal note" : "Send a message"}</h3></div>
+                <span>{noteMode ? "Only your team can see this" : selected.mobile}</span>
+              </div>
               {optedOut && (
                 <div className="send-blocked">
                   <Icon name="shield" />
@@ -447,7 +453,7 @@ export function Conversations({ initialProspectId = "", role, notify }: Props) {
                 {canSend
                   ? noteMode
                     ? "Internal note · never sent to the customer"
-                    : `Sending as ${selected.rooftop}. The backend adds identification, contact details and reply STOP.`
+                    : `From ${selected.rooftop} · Identification and opt-out details are added automatically.`
                   : "Read-only conversation access"}
               </p>
               <div className="composer-tabs">

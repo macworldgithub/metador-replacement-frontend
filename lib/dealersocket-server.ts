@@ -6,7 +6,7 @@ import { sanitizeLiveSnapshot } from './live-dealersocket';
 export async function handleDealerSocket(request: NextRequest, path: string[]) {
   const action = path.join('/');
   const live = ['leads/status','leads/read'].includes(action);
-  if (!(request.method === 'GET' && ['status','leads/status'].includes(action) || request.method === 'POST' && ['check', 'login/start','leads/read'].includes(action)))
+  if (!(request.method === 'GET' && ['status','leads/status'].includes(action) || request.method === 'POST' && ['check', 'login/start','login/automatic/start','leads/read'].includes(action)))
     return authResponse({ message: 'DealerSocket endpoint not found.' }, 404);
   // A real Origin is required for opening/checking the local automation browser.
   if (request.method !== 'GET' && (!request.headers.get('origin') || !sameOrigin(request)))

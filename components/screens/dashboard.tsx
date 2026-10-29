@@ -5,6 +5,7 @@ import type { Role } from "@/lib/types";
 
 import { Icon } from "../icon";
 import { useSession } from "../auth/session-provider";
+import { useRooftops } from '@/lib/rooftops';
 
 type Props = {
   role: Role;
@@ -14,7 +15,9 @@ type Props = {
 
 export function Dashboard({ navigate, openConversation }: Props) {
   const user = useSession();
-  const { prospects: leads, loading, error, refresh } = useProspects();
+  const { prospects, loading, error, refresh } = useProspects();
+  const roofs = useRooftops();
+  const leads = prospects.filter(p => !p.api.id.startsWith('sms_test_') && !/^SMS-TEST-/i.test(p.api.dealerSocketOpportunityId));
   const waiting = leads.filter((p) => p.status === "Waiting on us");
   const unassigned = leads.filter(
     (p) => p.owner === "Unassigned" && p.status !== "Opted out",
@@ -57,12 +60,11 @@ export function Dashboard({ navigate, openConversation }: Props) {
         <div>
           <span className="eyebrow">BOORAN MOTOR GROUP · CRANBOURNE</span>
           <h2>
-            New-lead SMS journeys
-            <br className="desktop-break" /> and conversation portal
+            Your dealership workspace
           </h2>
           <p>
-            One ordered thread per prospect. Every reply, staff SMS and journey
-            event in sequence.
+            Keep every lead moving. Review customer replies, follow up with your
+            team and manage SMS journeys in one place.
           </p>
         </div>
         <button
@@ -89,7 +91,7 @@ export function Dashboard({ navigate, openConversation }: Props) {
           <article className="stat-card" key={stat.label}>
             <div>
               <span>{stat.label}</span>
-              <strong>{stat.value}</strong>
+              <strong>{loading || error ? '—' : stat.value}</strong>
               <p>{stat.note}</p>
             </div>
             <div className={`stat-icon ${stat.tone}`}>
@@ -138,7 +140,7 @@ export function Dashboard({ navigate, openConversation }: Props) {
               <Icon name="chevron" size={16} />
             </button>
           ))}
-          {!waiting.length && (
+          {!loading && !error && !waiting.length && (
             <div className="empty-state">
               <Icon name="check" />
               <b>No customer replies waiting</b>
@@ -161,36 +163,18 @@ export function Dashboard({ navigate, openConversation }: Props) {
                 <p>Separate dealership and sending identities.</p>
               </div>
             </div>
-            {[
-              {
-                n: "Cranbourne Kia",
-                a: "209 South Gippsland Hwy",
-                i: "KIA",
-                c: "#101c2e",
-              },
-              {
-                n: "Cranbourne MG",
-                a: "215 South Gippsland Hwy",
-                i: "MG",
-                c: "#d91824",
-              },
-              {
-                n: "Geely Cranbourne",
-                a: "217A South Gippsland Hwy",
-                i: "G",
-                c: "#17479e",
-              },
-            ]
-              .filter((r) => user.rooftops.some((roof) => roof === r.n))
+            {roofs.error && <div role="alert" className="portal-api-error">{roofs.error}</div>}
+            {roofs.rooftops
+              .filter((r) => user.rooftopIds.includes(r.id))
               .map((r) => (
-                <div className="dashboard-rooftop" key={r.n}>
-                  <i style={{ background: r.c }}>{r.i}</i>
+                <div className="dashboard-rooftop" key={r.id}>
+                  <i style={{ background: '#101c2e' }}>{r.name.charAt(0)}</i>
                   <div>
-                    <b>{r.n}</b>
-                    <span>{r.a}</span>
+                    <b>{r.name}</b>
+                    <span>{r.address}</span>
                   </div>
                   <span>
-                    {leads.filter((p) => p.rooftop === r.n).length} prospects
+                    {loading || error ? '—' : leads.filter((p) => p.api.rooftopId === r.id).length} prospects
                   </span>
                 </div>
               ))}
@@ -199,12 +183,10 @@ export function Dashboard({ navigate, openConversation }: Props) {
             <span>DEALERSOCKET WRITE-BACK</span>
             <h3>Opportunity system of record</h3>
             <p>
-              Outbound, inbound and outcomes are written back as timestamped
-              activities or work notes.
+              CRM activity delivery is tracked in Automation monitoring.
             </p>
             <div className="integration-status">
-              Conversation outcomes and staff SMS are queued for CRM write-back
-              by the backend.
+              Check write-back logs for pending, failed or completed activity. A portal event alone does not confirm a CRM update.
             </div>
           </section>
         </aside>

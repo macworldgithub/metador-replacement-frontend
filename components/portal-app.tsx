@@ -1,17 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { PortalNotificationContext } from "./portal-screen";
 import { navGroups } from "@/lib/mock-data";
 import { canAccessPage, roleProfiles } from "@/lib/permissions";
 import { Icon } from "./icon";
-import { Dashboard } from "./screens/dashboard";
-import { Conversations } from "./screens/conversations";
-import { ProspectWorkspace } from "./screens/prospect-workspace";
-import { AdminScreen } from "./screens/admin-screens";
 import { SessionProvider, useSession } from "./auth/session-provider";
 import { logout } from "@/lib/auth";
-import { fetchNotifications, markNotificationRead, type SystemNotification } from "@/lib/notifications";
+import { markNotificationRead, type SystemNotification } from "@/lib/notifications";
 import {
   ProspectProvider,
   useProspects,
@@ -56,17 +54,18 @@ const pageTitles: Record<string, [string, string]> = {
   ],
 };
 
-export function PortalApp() {
+export function PortalApp({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
       <ProspectProvider>
-        <AuthenticatedPortal />
+        <AuthenticatedPortal>{children}</AuthenticatedPortal>
       </ProspectProvider>
     </SessionProvider>
   );
 }
 
-function AuthenticatedPortal() {
+function AuthenticatedPortal({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const router = useRouter();
   const user = useSession();
   const role = user.role;
@@ -75,8 +74,7 @@ function AuthenticatedPortal() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsList, setNotificationsList] = useState<SystemNotification[]>([]);
-  const [page, setPage] = useState("overview");
-  const [prospectId, setProspectId] = useState("");
+  const page = pathname.split("/")[1] || "overview";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState("");
 
@@ -95,16 +93,7 @@ function AuthenticatedPortal() {
     }
   }
 
-  function navigate(next: string) {
-    if (!canAccessPage(role, next, user)) {
-      setToast("This page is unavailable for your role.");
-      return;
-    }
-    setPage(next);
-    setSidebarOpen(false);
-  }
-
-  const activePage = canAccessPage(role, page, user) ? page : "overview";
+  const activePage = page;
   const title = pageTitles[activePage] ?? pageTitles.overview;
   const profile = {
     ...roleProfiles[role],
@@ -161,17 +150,19 @@ function AuthenticatedPortal() {
               <div className="nav-group" key={group.label}>
                 <p>{group.label}</p>
                 {visible.map((item) => (
-                  <button
+                  <Link
+                    href={`/${item.id}`}
+                    aria-current={activePage === item.id ? "page" : undefined}
                     key={item.id}
                     className={activePage === item.id ? "active" : ""}
-                    onClick={() => navigate(item.id)}
+                    onClick={() => setSidebarOpen(false)}
                   >
                     <Icon name={item.icon} size={18} />
                     <span>{item.label}</span>
                     {item.id === "conversations" && unread > 0 && (
                       <em>{unread}</em>
                     )}
-                  </button>
+                  </Link>
                 ))}
               </div>
             );
@@ -236,45 +227,7 @@ function AuthenticatedPortal() {
         <main
           className={`main-content ${activePage === "conversations" ? "conversation-content" : ""}`}
         >
-          {activePage === "overview" && (
-            <Dashboard
-              role={role}
-              navigate={navigate}
-              openConversation={(id) => {
-                setProspectId(id);
-                navigate("conversations");
-              }}
-            />
-          )}
-          {activePage === "conversations" && (
-            <Conversations
-              key={`${user.id}-${user.apiRole}-${user.rooftopIds.join(",")}-${prospectId}`}
-              initialProspectId={prospectId}
-              role={role}
-              notify={setToast}
-            />
-          )}
-          {activePage === "prospects" && (
-            <ProspectWorkspace
-              role={role}
-              openConversation={(id) => {
-                setProspectId(id);
-                navigate("conversations");
-              }}
-              notify={setToast}
-            />
-          )}
-          {[
-            "journeys",
-            "templates",
-            "reports",
-            "suppression",
-            "team",
-            "settings",
-            "automation",
-          ].includes(activePage) && (
-            <AdminScreen role={role} page={activePage} notify={setToast} />
-          )}
+          <PortalNotificationContext.Provider value={setToast}>{children}</PortalNotificationContext.Provider>
         </main>
       </div>
       

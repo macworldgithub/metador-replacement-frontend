@@ -1,6 +1,6 @@
 export type DealerSocketStatus = {
   state: 'disconnected' | 'connecting' | 'connected' | 'login_required' | 'error';
-  operation: 'login' | 'check' | null;
+  operation: 'login' | 'check' | 'read' | null;
   lastCheckedAt: string | null;
   lastConnectedAt: string | null;
   errorCode: string | null;
@@ -15,7 +15,7 @@ export function sanitizeDealerSocket(value: unknown): DealerSocketStatus {
   const date = (value: unknown) => value === null || typeof value === 'string' && Number.isFinite(Date.parse(value));
   const roofs = [ ['cranbourne_kia', 'Cranbourne Kia'], ['cranbourne_mg', 'Cranbourne MG'], ['geely_cranbourne', 'Geely Cranbourne'] ];
   if (!data || !['disconnected', 'connecting', 'connected', 'login_required', 'error'].includes(data.state) ||
-    ![null, 'login', 'check'].includes(data.operation) || typeof data.message !== 'string' || data.message.length > 500 ||
+    ![null, 'login', 'check', 'read'].includes(data.operation) || typeof data.message !== 'string' || data.message.length > 500 ||
     !(data.errorCode === null || typeof data.errorCode === 'string' && /^[a-z_]{1,60}$/.test(data.errorCode)) ||
     typeof data.interactiveLoginEnabled !== 'boolean' || !date(data.lastCheckedAt) || !date(data.lastConnectedAt) || !date(data.sessionExpiresAt) ||
     !Array.isArray(data.rooftops) || data.rooftops.length !== 3 || roofs.some(([id, name]) =>

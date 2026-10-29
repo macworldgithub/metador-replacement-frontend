@@ -6,6 +6,7 @@ import "./users.css";
 import "./conversations.css";
 import "./compliance.css";
 import "./live-leads.css";
+import "./workspace-ui.css";
 
 export const metadata: Metadata = {
   title: "Booran Motor Group | New-lead conversation portal",

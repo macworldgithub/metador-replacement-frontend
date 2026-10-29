@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { login, submitAuthPreview, validateAuth, type AuthMode, type AuthValues, type AuthErrors } from "@/lib/auth";
 import { Icon } from "@/components/icon";
+import { safePortalDestination } from '@/lib/portal-routes';
 
 const copy = {
   signin: { label: "WELCOME BACK", title: "Sign in to your workspace", description: "Continue your customer conversations across the Cranbourne rooftops.", button: "Sign in", pending: "Signing in…" },
@@ -33,7 +34,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     if (Object.keys(validation).length) return;
     setBusy(true);
     try {
-      if (mode === "signin") { await login(values.email, values.password); router.replace("/"); }
+      if (mode === "signin") { await login(values.email, values.password); router.replace(safePortalDestination(new URLSearchParams(window.location.search).get('next'))); }
       else { await submitAuthPreview(mode); setSuccess(true); setValues((current) => ({ ...current, password: "", confirmPassword: "" })); }
     } catch (cause) {
       setErrors({ form: cause instanceof Error ? cause.message : "We couldn’t complete your request. Please try again." });

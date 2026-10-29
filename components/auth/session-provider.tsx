@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { AuthUser } from "@/lib/auth-profile";
 import { getCurrentUser, logout, AuthApiError } from "@/lib/auth";
 import { Icon } from "../icon";
+import { safePortalDestination } from '@/lib/portal-routes';
 
 const SessionContext = createContext<AuthUser | null>(null);
 
@@ -21,7 +22,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       catch (cause) {
         if (!active) return;
         setUser(null);
-        if (cause instanceof AuthApiError && cause.status === 401) router.replace("/signin");
+        if (cause instanceof AuthApiError && cause.status === 401) router.replace(`/signin?next=${encodeURIComponent(safePortalDestination(window.location.pathname + window.location.search))}`);
         else setError(cause instanceof Error ? cause.message : "Cannot load your profile.");
       }
     };

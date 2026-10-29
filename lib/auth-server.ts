@@ -13,8 +13,22 @@ export function clearSession(response: NextResponse) {
 }
 
 export function sameOrigin(request: NextRequest): boolean {
+  if (request.headers.get("sec-fetch-site") === "cross-site") return false;
   const origin = request.headers.get("origin");
-  return request.headers.get("sec-fetch-site") !== "cross-site" && (!origin || origin === request.nextUrl.origin);
+  if (!origin) return true;
+  try {
+    const source = new URL(origin);
+    if (!['http:', 'https:'].includes(source.protocol) || source.origin !== origin) return false;
+    // Next's internal URL may use the listening address (localhost/0.0.0.0)
+    // instead of the hostname the browser requested. Host includes the port.
+    const host = request.headers.get("host");
+    const configured = process.env.PORTAL_ORIGIN;
+    if (configured) return source.origin === new URL(configured).origin;
+    if (host) return source.host === host.toLowerCase() && source.protocol === request.nextUrl.protocol;
+    return source.origin === request.nextUrl.origin;
+  } catch {
+    return false;
+  }
 }
 
 export async function backendAuth(path: "login" | "me", init: RequestInit, request: NextRequest): Promise<Response> {

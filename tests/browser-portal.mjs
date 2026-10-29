@@ -71,14 +71,14 @@ export async function runBrowserPortal({
       .waitFor();
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await page.waitForURL(base + "/");
+    await page.waitForURL(base + "/overview");
     await page
       .locator(".profile-trigger")
       .filter({ hasText: "Group Admin" })
       .waitFor();
     await page
       .locator("nav.main-nav")
-      .getByRole("button", { name: "Conversation portal" })
+      .getByRole("link", { name: "Conversation portal" })
       .click();
     await page.locator(`[data-prospect-id="${prospectId}"]`).click();
     await page
