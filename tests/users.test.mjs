@@ -55,7 +55,7 @@ test("list and details forward bearer auth and sanitize returned users", async (
   t.mock.restoreAll();
   const detailCalls = upstream(t, user);
   assert.equal((await (await handleUsers(request("GET"), [userId])).json()).id, userId);
-  assert.equal(detailCalls[1].url, `http://localhost:3000/api/users/${userId}`);
+  assert.equal(detailCalls[1].url, `https://www.cranbourne-backend.omnisuiteai.com/api/users/${userId}`);
 });
 
 test("create validates fields, maps payload and accepts backend 201", async (t) => {
@@ -77,7 +77,7 @@ test("role, rooftop and password patches call exactly their supplied endpoints",
     const calls = upstream(t, action === "password" ? { message: "Password updated successfully" } : user);
     const response = await handleUsers(request("PATCH", body), [userId, action]);
     assert.equal(response.status, 200);
-    assert.equal(calls[1].url, `http://localhost:3000/api/users/${userId}/${action}`);
+    assert.equal(calls[1].url, `https://www.cranbourne-backend.omnisuiteai.com/api/users/${userId}/${action}`);
     assert.equal(calls[1].init.method, "PATCH");
     assert.deepEqual(JSON.parse(calls[1].init.body), body);
     if (action === "password") assert.deepEqual(await response.json(), { message: "Password updated successfully" });

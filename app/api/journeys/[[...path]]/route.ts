@@ -14,7 +14,7 @@ async function handler(request: NextRequest, context: Context) {
     try { body = await request.json(); } catch { body = undefined; }
   }
 
-  const base = (process.env.API_BASE_URL || "http://localhost:3000/api").replace(/\/$/, "");
+  const base = (process.env.API_BASE_URL || "https://www.cranbourne-backend.omnisuiteai.com/api").replace(/\/$/, "");
   const target = new URL(`${base}/journeys${path.length ? `/${path.join("/")}` : ""}`);
   const rooftopId = request.nextUrl.searchParams.get("rooftopId");
   if (rooftopId) target.searchParams.set("rooftopId", rooftopId);

@@ -9,7 +9,7 @@ async function handler(request: NextRequest, context: Context) {
   if (!token) return authResponse({ message: "Please sign in to continue." }, 401);
   if (request.method !== "GET" && !sameOrigin(request)) return authResponse({ message: "Request origin is not allowed." }, 403);
 
-  const base = (process.env.API_BASE_URL || "http://localhost:3000/api").replace(/\/$/, "");
+  const base = (process.env.API_BASE_URL || "https://www.cranbourne-backend.omnisuiteai.com/api").replace(/\/$/, "");
   const target = new URL(`${base}/writeback${path.length ? `/${path.join("/")}` : ""}`);
   const status = request.nextUrl.searchParams.get("status");
   if (status) target.searchParams.set("status", status);

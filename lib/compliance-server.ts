@@ -30,7 +30,7 @@ export async function handleCompliance(request: NextRequest, segments: string[])
       normalized = normalizeMobile(mobile);
       if (!normalized) return authResponse({ message: "Enter a valid Australian mobile number." }, 400);
     }
-    const base = (process.env.API_BASE_URL || "http://localhost:3000/api").replace(/\/$/, "");
+    const base = (process.env.API_BASE_URL || "https://www.cranbourne-backend.omnisuiteai.com/api").replace(/\/$/, "");
     const response = await fetch(`${base}/compliance/${action}${normalized ? `/${encodeURIComponent(normalized)}` : ""}`, {
       method, headers: { Authorization: `Bearer ${token}`, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store", signal: AbortSignal.timeout(10000),

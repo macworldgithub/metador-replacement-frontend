@@ -27,7 +27,7 @@ export async function handleUsers(request: NextRequest, segments: string[]) {
       if (action === "role" && id === actor.id && raw.role !== "group_admin") return authResponse({ message: "Ask another Group Admin to change your own administrator role." }, 400);
       body = method === "POST" ? { name: raw.name.trim(), email: raw.email.trim().toLowerCase(), password: raw.password, role: raw.role, rooftopIds: [...new Set(raw.rooftopIds)] } : action === "role" ? { role: raw.role } : action === "password" ? { newPassword: raw.newPassword } : { rooftopIds: [...new Set(raw.rooftopIds)] };
     }
-    const base = (process.env.API_BASE_URL || "http://localhost:3000/api").replace(/\/$/, "");
+    const base = (process.env.API_BASE_URL || "https://www.cranbourne-backend.omnisuiteai.com/api").replace(/\/$/, "");
     const response = await fetch(`${base}/users${segments.length ? `/${segments.join("/")}` : ""}`, { method, headers: { Authorization: `Bearer ${token}`, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store", signal: AbortSignal.timeout(10000) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {

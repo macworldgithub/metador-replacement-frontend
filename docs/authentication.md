@@ -1,6 +1,6 @@
 # Authentication integration
 
-Start Nest on `http://localhost:3000` and Next with `npm run dev` on `http://localhost:3001`. Open `/signin` on the frontend. `API_BASE_URL` defaults to `http://localhost:3000/api`; override it in `.env.local` for other environments. It is server-only and must not point at the frontend.
+Start Nest on `http://localhost:3000` and Next with `npm run dev` on `http://localhost:3001`. Open `/signin` on the frontend. `API_BASE_URL` defaults to `https://www.cranbourne-backend.omnisuiteai.com/api`; override it in `.env.local` for other environments. It is server-only and must not point at the frontend.
 
 The Next route `POST /api/auth/login` forwards email/password to Nest. Both HTTP 200 and HTTP 201 success responses are accepted. The bearer token is stored in an HTTP-only, same-site cookie, marked secure in production. Passwords and tokens are not stored in browser storage or returned to the frontend UI.
 

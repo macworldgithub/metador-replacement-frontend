@@ -63,7 +63,7 @@ test('DealerSocket status/check/login forward only portal authentication and whi
     assert.equal(response.headers.get('cache-control'), 'no-store');
   }
   assert.equal(calls.length, 8);
-  assert.equal(calls[7].url, 'http://localhost:3000/api/integrations/dealersocket/login/automatic/start');
+  assert.equal(calls[7].url, 'https://www.cranbourne-backend.omnisuiteai.com/api/integrations/dealersocket/login/automatic/start');
   assert.equal(calls[5].init.headers.Authorization, 'Bearer portal-test');
   assert.equal(calls[5].init.headers['X-Connector-Key'], undefined);
 });
@@ -118,7 +118,7 @@ test('admin can request live snapshot refresh with portal authentication only',a
   assert.equal(result.status,202);
   assert.equal(calls[1].init.body,undefined);
   assert.equal(calls[1].init.headers['X-Connector-Key'],undefined);
-  assert.equal(calls[1].url,'http://localhost:3000/api/integrations/dealersocket/leads/read');
+  assert.equal(calls[1].url,'https://www.cranbourne-backend.omnisuiteai.com/api/integrations/dealersocket/leads/read');
 });
 test('malformed live responses are rejected and no-store is retained',async t=>{
   assert.throws(()=>sanitizeLiveSnapshot({...liveSnapshot,readOnly:false}));

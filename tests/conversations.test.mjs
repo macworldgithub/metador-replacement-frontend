@@ -94,7 +94,7 @@ test("all eight endpoints forward method, DTO and bearer token to configured bac
     t.mock.method(globalThis, "fetch", async (url, init) => {
       assert.equal(
         String(url),
-        `http://localhost:3000/api/prospects${segments.length ? `/${segments.join("/")}` : ""}`,
+        `https://www.cranbourne-backend.omnisuiteai.com/api/prospects${segments.length ? `/${segments.join("/")}` : ""}`,
       );
       assert.equal(init.method, method);
       assert.equal(init.headers.Authorization, "Bearer test-token");

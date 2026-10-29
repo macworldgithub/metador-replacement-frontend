@@ -4,7 +4,7 @@ Date: 14 October 2026.
 
 ## Integrated endpoints
 
-All browser requests use the Next.js `/api/prospects` proxy. The server uses `API_BASE_URL`, defaulting to `http://localhost:3000/api`, and forwards the HTTP-only session cookie as `Authorization: Bearer <token>`. Tokens are not exposed in browser storage. Frontend defaults to port 3001.
+All browser requests use the Next.js `/api/prospects` proxy. The server uses `API_BASE_URL`, defaulting to `https://www.cranbourne-backend.omnisuiteai.com/api`, and forwards the HTTP-only session cookie as `Authorization: Bearer <token>`. Tokens are not exposed in browser storage. Frontend defaults to port 3001.
 
 | Backend endpoint | Method | Frontend module / action | Payload | Verification |
 | --- | --- | --- | --- | --- |

@@ -21,7 +21,7 @@ export async function handleDealerSocket(request: NextRequest, path: string[]) {
     const viewLive = action === 'leads/status' && ['group_admin','sales_manager','bdc','salesperson','read_only'].includes(actor.role);
     if ((!viewLive && actor.role !== 'group_admin') || actor.isActive !== true)
       return authResponse({ message: 'Only Group Admin can manage the DealerSocket connection.' }, 403);
-    const base = (process.env.API_BASE_URL || 'http://localhost:3000/api').replace(/\/$/, '');
+    const base = (process.env.API_BASE_URL || 'https://www.cranbourne-backend.omnisuiteai.com/api').replace(/\/$/, '');
     if (new URL(base).origin === request.nextUrl.origin) return authResponse({ message: 'Backend configuration is invalid.' }, 503);
     const response = await fetch(`${base}/integrations/dealersocket/${action}`, {
       method: request.method, headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },

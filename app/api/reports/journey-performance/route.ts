@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const token = request.cookies.get(sessionCookie)?.value;
   if (!token) return authResponse({ message: "Please sign in to continue." }, 401);
 
-  const base = (process.env.API_BASE_URL || "http://localhost:3000/api").replace(/\/$/, "");
+  const base = (process.env.API_BASE_URL || "https://www.cranbourne-backend.omnisuiteai.com/api").replace(/\/$/, "");
   const target = new URL(`${base}/reports/journey-performance`);
   for (const p of ["rooftopId", "from", "to"]) {
     const v = request.nextUrl.searchParams.get(p);

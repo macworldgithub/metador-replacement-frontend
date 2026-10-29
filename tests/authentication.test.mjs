@@ -55,7 +55,7 @@ test("inactive and unknown role profiles are rejected", () => {
 
 test("login accepts backend 201, forwards credentials and protects bearer token in cookie", async (t) => {
   t.mock.method(globalThis, "fetch", async (url, init) => {
-    assert.equal(String(url), "http://localhost:3000/api/auth/login");
+    assert.equal(String(url), "https://www.cranbourne-backend.omnisuiteai.com/api/auth/login");
     assert.deepEqual(JSON.parse(init.body), { email: "user@example.test", password: "TestPassword1" });
     return Response.json({ accessToken: "test-token", tokenType: "Bearer", expiresIn: "8h", user: profile }, { status: 201 });
   });
@@ -80,7 +80,7 @@ test("invalid credentials clear an existing session", async (t) => {
 
 test("profile forwards cookie token as a Bearer header and avoids caching", async (t) => {
   t.mock.method(globalThis, "fetch", async (url, init) => {
-    assert.equal(String(url), "http://localhost:3000/api/auth/me");
+    assert.equal(String(url), "https://www.cranbourne-backend.omnisuiteai.com/api/auth/me");
     assert.equal(init.headers.Authorization, "Bearer test-token");
     assert.equal(init.cache, "no-store");
     return Response.json(profile);

@@ -42,7 +42,7 @@ async function handler(request: NextRequest, context: Context) {
       return authResponse({ message: "Invalid request body." }, 400);
   }
   const base = (
-    process.env.API_BASE_URL || "http://localhost:3000/api"
+    process.env.API_BASE_URL || "https://www.cranbourne-backend.omnisuiteai.com/api"
   ).replace(/\/$/, "");
   const url = new URL(
     `${base}/prospects${path.length ? `/${path.join("/")}` : ""}`,
