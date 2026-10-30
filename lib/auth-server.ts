@@ -31,7 +31,7 @@ export function sameOrigin(request: NextRequest): boolean {
   }
 }
 
-export async function backendAuth(path: "login" | "me", init: RequestInit, request: NextRequest): Promise<Response> {
+export async function backendAuth(path: string, init: RequestInit, request: NextRequest): Promise<Response> {
   const base = (process.env.API_BASE_URL || "https://www.cranbourne-backend.omnisuiteai.com/api").replace(/\/$/, "");
   const target = new URL(`${base}/auth/${path}`);
   if (target.origin === request.nextUrl.origin) throw new Error("The backend and frontend URLs must use different ports.");

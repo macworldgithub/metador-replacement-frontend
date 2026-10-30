@@ -8,4 +8,5 @@ The Next route `POST /api/auth/login` forwards email/password to Nest. Both HTTP
 
 Backend role mapping: `group_admin` → Super Admin; `sales_manager` → Dealership Manager; `salesperson` → Sales Consultant / Staff. `bdc` has dealership-wide access without manager reporting. `read_only` has conversation viewing without mutation permissions. Supported future aliases include `super_admin`, `dealership_manager`, `sales_consultant`, `staff`, `automation_admin` and `system_admin`. Unknown roles are denied. Assigned rooftop IDs come from the profile even for Super Admin; there is no client role switcher.
 
-Authentication is live. Other feature records remain frontend fixtures; their visibility uses authenticated rooftop assignments and ownership. Sign-up and forgot-password remain previews because no registration/recovery endpoints have been supplied. Backend guards remain authoritative for API access.
+Authentication and password recovery are live. Password recovery uses secure hashed crypto tokens with a 1-hour expiry, allowing users to request a reset link and set a new password on `/reset-password?token=...`. Sign-up remains a preview because user registration is handled by Group Admins. Backend guards remain authoritative for API access.
+

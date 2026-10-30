@@ -59,3 +59,62 @@ export async function getCurrentUser(signal?: AbortSignal): Promise<AuthUser> {
 export async function logout(): Promise<void> {
   await authRequest("logout", { method: "POST" });
 }
+
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  let response: Response;
+  try {
+    response = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+      body: JSON.stringify({ email: email.trim() }),
+    });
+  } catch {
+    throw new AuthApiError("Cannot reach the authentication service. Please try again.", 503);
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new AuthApiError(typeof data.message === "string" ? data.message : "Unable to request password reset.", response.status);
+  }
+  return data;
+}
+
+export async function verifyResetToken(token: string): Promise<{ valid: boolean; email?: string }> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/auth/verify-reset-token?token=${encodeURIComponent(token)}`, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+  } catch {
+    throw new AuthApiError("Cannot reach the authentication service. Please try again.", 503);
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new AuthApiError(typeof data.message === "string" ? data.message : "Invalid or expired reset token.", response.status);
+  }
+  return data;
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  let response: Response;
+  try {
+    response = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+      body: JSON.stringify({ token, newPassword }),
+    });
+  } catch {
+    throw new AuthApiError("Cannot reach the authentication service. Please try again.", 503);
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new AuthApiError(typeof data.message === "string" ? data.message : "Unable to reset password.", response.status);
+  }
+  return data;
+}
+

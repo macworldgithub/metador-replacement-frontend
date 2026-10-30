@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { login, submitAuthPreview, validateAuth, type AuthMode, type AuthValues, type AuthErrors } from "@/lib/auth";
+import { login, submitAuthPreview, validateAuth, requestPasswordReset, type AuthMode, type AuthValues, type AuthErrors } from "@/lib/auth";
 import { Icon } from "@/components/icon";
 import { safePortalDestination } from '@/lib/portal-routes';
 
 const copy = {
   signin: { label: "WELCOME BACK", title: "Sign in to your workspace", description: "Continue your customer conversations across the Cranbourne rooftops.", button: "Sign in", pending: "Signing in…" },
   signup: { label: "JOIN YOUR TEAM", title: "Create your account", description: "Set up your details to join the Booran conversation portal.", button: "Create account", pending: "Creating account…" },
-  forgot: { label: "ACCOUNT RECOVERY", title: "Forgot your password?", description: "Enter your work email and we’ll help you get back to your workspace.", button: "Send reset link", pending: "Submitting request…" },
+  forgot: { label: "ACCOUNT RECOVERY", title: "Forgot your password?", description: "Enter your work email and we’ll send you a link to reset your password.", button: "Send reset link", pending: "Sending link…" },
 };
 
 export function AuthForm({ mode }: { mode: AuthMode }) {
@@ -19,6 +19,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [errors, setErrors] = useState<AuthErrors>({});
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [resetResult, setResetResult] = useState<{ message: string } | null>(null);
   const text = copy[mode];
 
   function update(field: keyof AuthValues, value: string) {
@@ -34,8 +35,18 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     if (Object.keys(validation).length) return;
     setBusy(true);
     try {
-      if (mode === "signin") { await login(values.email, values.password); router.replace(safePortalDestination(new URLSearchParams(window.location.search).get('next'))); }
-      else { await submitAuthPreview(mode); setSuccess(true); setValues((current) => ({ ...current, password: "", confirmPassword: "" })); }
+      if (mode === "signin") {
+        await login(values.email, values.password);
+        router.replace("/");
+      } else if (mode === "forgot") {
+        const result = await requestPasswordReset(values.email);
+        setResetResult(result);
+        setSuccess(true);
+      } else {
+        await submitAuthPreview(mode);
+        setSuccess(true);
+        setValues((current) => ({ ...current, password: "", confirmPassword: "" }));
+      }
     } catch (cause) {
       setErrors({ form: cause instanceof Error ? cause.message : "We couldn’t complete your request. Please try again." });
     } finally { setBusy(false); }
@@ -51,7 +62,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       <footer className="auth-brand-footer"><span>BOORAN MOTOR GROUP</span><span>Powered by OmniSuiteAI</span></footer>
     </aside>
     <section className="auth-main"><div className="auth-mobile-brand"><span className="auth-logo">B<span /></span><strong>Booran Motor Group</strong></div><div className={`auth-card ${mode === "signup" ? "auth-card-signup" : ""}`}>
-      {success ? <div className="auth-success" role="status"><div className="auth-success-icon"><Icon name={mode === "forgot" ? "message" : "check"} size={25} /></div><span className="eyebrow">{mode === "forgot" ? "REQUEST RECEIVED" : "DETAILS COMPLETED"}</span><h1>{mode === "forgot" ? "Reset request preview" : "Your account details are ready"}</h1><p>{mode === "forgot" ? `A reset link for ${values.email.trim()} will be sent once email delivery is connected.` : "Account creation is currently a frontend preview. Your Super Admin will assign your role and rooftop access when registration is connected."}</p><div className="auth-preview-notice">No {mode === "forgot" ? "email has been sent" : "account has been created"} in this preview.</div><Link href="/signin" className="btn primary auth-submit">Back to sign in <Icon name="chevron" size={16} /></Link><button className="auth-retry" onClick={() => setSuccess(false)}>{mode === "forgot" ? "Use a different email" : "Update my details"}</button></div> : <>
+      {success ? <div className="auth-success" role="status"><div className="auth-success-icon"><Icon name={mode === "forgot" ? "message" : "check"} size={25} /></div><span className="eyebrow">{mode === "forgot" ? "CHECK YOUR EMAIL" : "DETAILS COMPLETED"}</span><h1>{mode === "forgot" ? "Password reset link sent" : "Your account details are ready"}</h1><p>{mode === "forgot" ? (resetResult?.message || `If an account exists for ${values.email.trim()}, a password reset link has been sent. Check your inbox and spam folder.`) : "Account creation is currently a frontend preview. Your Super Admin will assign your role and rooftop access when registration is connected."}</p>{mode === "signup" && <div className="auth-preview-notice">No account has been created in this preview.</div>}<Link href="/signin" className="btn primary auth-submit">Back to sign in <Icon name="chevron" size={16} /></Link><button className="auth-retry" onClick={() => setSuccess(false)}>{mode === "forgot" ? "Send to a different email" : "Update my details"}</button></div> : <>
         <span className="eyebrow">{text.label}</span><h1>{text.title}</h1><p className="auth-description">{text.description}</p>
         <form onSubmit={submit} noValidate aria-busy={busy}>
           <fieldset disabled={busy}>
@@ -65,7 +76,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           </fieldset>
         </form>
         <p className="auth-switch">{mode === "signin" ? <>New to the portal? <Link href="/signup">Create an account</Link></> : mode === "signup" ? <>Already have an account? <Link href="/signin">Sign in</Link></> : <Link href="/signin">← Back to sign in</Link>}</p>
-        {mode !== "signin" && <div className="auth-preview-notice">Frontend preview · {mode === "signup" ? "Account creation will be connected to your identity service." : "Reset email delivery will be connected to your identity service."}</div>}
+        {mode === "signup" && <div className="auth-preview-notice">Frontend preview · Account creation will be connected to your identity service.</div>}
       </>}
     </div><footer className="auth-main-footer"><Icon name="shield" size={13} /> Authorised Booran Motor Group users only</footer></section>
   </main>;
