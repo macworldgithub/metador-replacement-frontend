@@ -32,7 +32,7 @@ export function sanitizeLiveSnapshot(value: unknown): LiveLeadSnapshot {
   if (!['idle','running','complete','partial','error'].includes(raw.state) || raw.readOnly !== true ||
       !(raw.jobId === null || typeof raw.jobId === 'string') || !date(raw.startedAt) || !date(raw.fetchedAt) || !date(raw.completedAt) ||
       !number(raw.durationSeconds) || !(raw.progress === null || typeof raw.progress === 'string') ||
-      !(raw.errorCode === null || ['login_required','snapshot_unavailable'].includes(raw.errorCode)) ||
+      !(raw.errorCode === null || ['login_required','session_unavailable','read_timeout','read_cancelled','lead_read_failed','snapshot_unavailable'].includes(raw.errorCode)) ||
       typeof raw.limited !== 'boolean' || typeof raw.coverageNote !== 'string' ||
       !Array.isArray(raw.records) || raw.records.length > 1000 || !Array.isArray(raw.rooftops) || raw.rooftops.length > 3 ||
       !Array.isArray(raw.issues) || !raw.issues.every(v => typeof v === 'string')) throw new Error('Invalid live lead snapshot.');

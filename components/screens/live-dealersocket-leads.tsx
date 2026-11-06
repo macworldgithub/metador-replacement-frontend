@@ -79,7 +79,7 @@ export function LiveDealerSocketLeads() {
     </div>
     {error && <p className="portal-api-error" role="alert">{error}</p>}
     {running && <p className="scope-note" role="status">{stages[snapshot?.progress || ''] || 'Reading DealerSocket'}. This may take a minute or longer; results appear when the read completes.</p>}
-    {snapshot?.state==='error' && <p className="portal-api-error" role="alert">{snapshot.errorCode==='login_required'?'DealerSocket login is required on the automation PC.':'The last snapshot could not be verified. Check the connector and try again.'}</p>}
+    {snapshot?.state==='error' && <p className="portal-api-error" role="alert">{snapshot.errorCode==='login_required'?'DealerSocket authentication failed during the refresh.':snapshot.errorCode==='read_timeout'?'The lead refresh exceeded its 10-minute time limit.':snapshot.errorCode==='session_unavailable'?'The automation browser could not verify a session.':snapshot.errorCode==='read_cancelled'?'The lead refresh was interrupted.':'The lead refresh failed while reading DealerSocket.'} {snapshot.progress && `Last stage: ${stages[snapshot.progress] || 'Reading DealerSocket'}.`} {snapshot.schedule.enabled && 'The server will retry automatically at the next scheduled attempt.'}</p>}
     {snapshot?.state==='idle' && <p className="scope-note">No snapshot is available yet. {admin?'Choose Fetch latest leads to start a read. ':''}{snapshot.schedule.enabled?'Leads will also refresh on the server schedule.':'Server sync is disabled.'}</p>}
     {completed && <>
       {(running || snapshot.state==='error') && <p className="scope-note">Showing the previous snapshot from {time(snapshot.fetchedAt)}. These results have not been refreshed yet.</p>}

@@ -140,3 +140,11 @@ test('scheduled refresh retains dated previous rows through running and failed s
   }
   assert.throws(()=>sanitizeLiveSnapshot({...liveSnapshot,schedule:{enabled:true,intervalSeconds:0,nextRunAt:null}}));
 });
+
+ test('lead refresh failure codes and stages survive portal sanitization', () => {
+  for (const errorCode of ['login_required','session_unavailable','read_timeout','read_cancelled','lead_read_failed']) {
+    const result = sanitizeLiveSnapshot({...liveSnapshot,state:'error',errorCode,progress:'reading_details'});
+    assert.equal(result.errorCode,errorCode);
+    assert.equal(result.progress,'reading_details');
+  }
+});
