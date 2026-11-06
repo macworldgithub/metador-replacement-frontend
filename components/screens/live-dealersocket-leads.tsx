@@ -1,6 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSession } from '../auth/session-provider';
+import { useCallback, useEffect, useState } from 'react';
 import { sanitizeLiveSnapshot, type LiveLeadSnapshot } from '@/lib/live-dealersocket';
 
 const stages: Record<string,string> = { checking_session:'Checking DealerSocket session',opening_opportunities:'Opening opportunities',
@@ -8,79 +7,53 @@ const stages: Record<string,string> = { checking_session:'Checking DealerSocket 
 const time = (value: string | null) => value ? new Date(value).toLocaleString('en-AU',{timeZone:'Australia/Melbourne'}) : 'Not yet fetched';
 
 export function LiveDealerSocketLeads() {
-  const user = useSession();
-  const admin = user.apiRole === 'group_admin';
   const [snapshot,setSnapshot] = useState<LiveLeadSnapshot | null>(null);
   const [error,setError] = useState('');
-  const [busy,setBusy] = useState(false);
-  const [automatic,setAutomatic] = useState(false);
   const [query,setQuery] = useState('');
   const [roof,setRoof] = useState('all');
   const [owner,setOwner] = useState('all');
-  const sequence = useRef(0);
-  const posting = useRef(false);
-  const mounted = useRef(false);
-  const nextRead = useRef(0);
-  const api = useCallback(async (refresh = false, signal?: AbortSignal) => {
-    const response = await fetch(`/api/integrations/dealersocket/leads/${refresh ? 'read' : 'status'}`,{
-      method:refresh?'POST':'GET',cache:'no-store',credentials:'same-origin',signal,
+  const api = useCallback(async (signal?: AbortSignal) => {
+    const response = await fetch('/api/integrations/dealersocket/leads/status',{
+      method:'GET',cache:'no-store',credentials:'same-origin',signal,
     });
     const result = await response.json();
     if(response.status===401) window.dispatchEvent(new Event('booran:session-refresh'));
     if(!response.ok) throw new Error(result.message || 'Cannot read DealerSocket leads.');
     return sanitizeLiveSnapshot(result);
   },[]);
-  const refresh = useCallback(async () => {
-    if(!admin || posting.current || snapshot?.state==='running') return;
-    posting.current = true;
-    const requestId = ++sequence.current;
-    setBusy(true);setError('');
-    try { const result=await api(true);if(mounted.current && requestId===sequence.current) setSnapshot(result); }
-    catch(cause) { if(mounted.current) { setError(cause instanceof Error?cause.message:'Refresh failed.');nextRead.current=Date.now()+30000; } }
-    finally { posting.current=false;if(mounted.current)setBusy(false); }
-  },[admin,api,snapshot?.state]);
   useEffect(() => {
-    mounted.current=true;
     const controller=new AbortController();
     let loading=false;
     const load=async () => {
-      if(loading || posting.current || document.hidden)return;
+      if(loading || document.hidden)return;
       loading=true;
-      const requestId=++sequence.current;
       try {
-        const result=await api(false,controller.signal);
-        if(!controller.signal.aborted && requestId===sequence.current) { setSnapshot(result);setError('');if(result.state==='error')setAutomatic(false); }
-      } catch(cause) { if(!controller.signal.aborted && requestId===sequence.current) { setError(cause instanceof Error?cause.message:'Cannot load live leads.');setAutomatic(false); } }
+        const result=await api(controller.signal);
+        if(!controller.signal.aborted) { setSnapshot(result);setError(''); }
+      } catch(cause) { if(!controller.signal.aborted) { setError(cause instanceof Error?cause.message:'Cannot load live leads.'); } }
       finally { loading=false; }
     };
     void load();
     const timer=window.setInterval(()=>void load(),5000);
-    return()=>{mounted.current=false;controller.abort();window.clearInterval(timer);};
+    return()=>{controller.abort();window.clearInterval(timer);};
   },[api]);
-  useEffect(() => {
-    if(!automatic || !admin || !snapshot || snapshot.schedule.enabled || snapshot.state==='running' || busy || error)return;
-    if(!nextRead.current)nextRead.current=Date.now()+(snapshot.state==='idle'?0:30000);
-    const timer=window.setTimeout(()=>{nextRead.current=0;void refresh();},Math.max(0,nextRead.current-Date.now()));
-    return()=>window.clearTimeout(timer);
-  },[automatic,admin,snapshot,busy,error,refresh]);
-  const running=busy || snapshot?.state==='running';
+  const running=snapshot?.state==='running';
   const rows=(snapshot?.records || []).filter(row=>(roof==='all'||row.rooftopId===roof) &&
     (owner==='all'||(row.owner||'Unassigned')===owner) &&
     `${row.customerName} ${row.mobile} ${row.email} ${row.vehicle} ${row.opportunityId}`.toLowerCase().includes(query.toLowerCase()));
   const completed=snapshot && snapshot.snapshotState !== null;
   return <div className="page-wrap live-leads-page">
     <div className="section-heading"><div><span className="eyebrow">DEALERSOCKET · READ ONLY</span><h2>Live dealership leads</h2><p>Current records from accessible dealership queues. These records are not enrolled in SMS journeys.</p></div>
-      {admin && <button className="btn primary" disabled={!!running} onClick={()=>void refresh()}>{running?'Reading DealerSocket…':'Fetch latest leads'}</button>}
     </div>
     <div className="live-leads-meta"><span>Last snapshot (Melbourne): <b>{time(snapshot?.fetchedAt ?? null)}</b></span>
       {snapshot?.durationSeconds !== null && snapshot?.durationSeconds !== undefined && <span>Read duration: {snapshot.durationSeconds.toFixed(1)} seconds</span>}
       {snapshot?.schedule.enabled ? <span>Server sync: every {snapshot.schedule.intervalSeconds / 60} minutes · Next scheduled attempt (Melbourne): <b>{time(snapshot.schedule.nextRunAt)}</b></span> :
-        admin && <label><input type="checkbox" checked={automatic} onChange={e=>{nextRead.current=0;setAutomatic(e.target.checked);}} /> Automatically refresh 30 seconds after each read</label>}
+        snapshot && <span>Automatic server sync is disabled. An administrator must enable the connector schedule.</span>}
     </div>
     {error && <p className="portal-api-error" role="alert">{error}</p>}
     {running && <p className="scope-note" role="status">{stages[snapshot?.progress || ''] || 'Reading DealerSocket'}. This may take a minute or longer; results appear when the read completes.</p>}
     {snapshot?.state==='error' && <p className="portal-api-error" role="alert">{snapshot.errorCode==='login_required'?'DealerSocket authentication failed during the refresh.':snapshot.errorCode==='read_timeout'?'The lead refresh exceeded its 10-minute time limit.':snapshot.errorCode==='session_unavailable'?'The automation browser could not verify a session.':snapshot.errorCode==='read_cancelled'?'The lead refresh was interrupted.':'The lead refresh failed while reading DealerSocket.'} {snapshot.progress && `Last stage: ${stages[snapshot.progress] || 'Reading DealerSocket'}.`} {snapshot.schedule.enabled && 'The server will retry automatically at the next scheduled attempt.'}</p>}
-    {snapshot?.state==='idle' && <p className="scope-note">No snapshot is available yet. {admin?'Choose Fetch latest leads to start a read. ':''}{snapshot.schedule.enabled?'Leads will also refresh on the server schedule.':'Server sync is disabled.'}</p>}
+    {snapshot?.state==='idle' && <p className="scope-note">No snapshot is available yet. {snapshot.schedule.enabled?'Leads will also refresh on the server schedule.':'Server sync is disabled.'}</p>}
     {completed && <>
       {(running || snapshot.state==='error') && <p className="scope-note">Showing the previous snapshot from {time(snapshot.fetchedAt)}. These results have not been refreshed yet.</p>}
       <div className="live-roof-summary">{snapshot.rooftops.map(item=><article key={item.id}><b>{item.name}</b><span>{item.recordCount} visible {item.recordCount===1?'record':'records'}{item.matchedCandidateCount!==null?` / ${item.matchedCandidateCount} matching candidates`:''}</span>
