@@ -57,13 +57,13 @@ export function DealerSocketConnection() {
     <p aria-live="polite">{!error && status?.message}</p>
     <div className="intro-actions" style={{ margin: '16px 0', flexWrap: 'wrap' }}>
       <button className="btn secondary" disabled={disabled} onClick={() => void act('check')}>{busy || status?.operation === 'check' ? 'Checking…' : 'Check connection'}</button>
-      <button className="btn primary" disabled={disabled || !status?.interactiveLoginEnabled || status?.errorCode === 'auto_login_manual_required'} onClick={() => void act('login/automatic/start')}>{status?.operation === 'login' ? 'Login in progress…' : 'Log in automatically · View browser'}</button>
+      <button className="btn primary" disabled={disabled || !status?.interactiveLoginEnabled} onClick={() => void act('login/automatic/start')}>{status?.operation === 'login' ? 'Login in progress…' : 'Log in automatically · View browser'}</button>
       <button className="btn secondary" disabled={disabled || !status?.interactiveLoginEnabled} onClick={() => void act('login/start')}>Open manual login</button>
       {process.env.NODE_ENV === 'production' && <a className="btn secondary" href="/api/integrations/dealersocket/viewer" target="_blank" rel="noopener noreferrer">View server browser</a>}
     </div>
     {viewerBlocked && <p role="alert">Your browser blocked the viewer tab. Select View server browser to open it without restarting login.</p>}
     <p>{process.env.NODE_ENV === 'production' ? 'Login opens the secured server browser in a new tab. Sign in with your separate viewer credentials if prompted. Complete extra verification there.' : 'Login opens Chrome on the automation computer. Complete extra verification in that window.'} Automatic login enters the configured DealerSocket credentials.</p>
-    {status?.errorCode === 'auto_login_manual_required' && <p className="scope-note">Automatic recovery is paused. Complete a manual login to restore verified access before retrying automation.</p>}
+    {status?.errorCode === 'auto_login_manual_required' && <p className="scope-note">DealerSocket requires verification or rejected the login. Complete verification manually, or retry automatic login after correcting credentials and waiting for the cooldown.</p>}
     {status && !status.interactiveLoginEnabled && <p>Interactive login is disabled in the connector settings.</p>}
     <dl className="connection-details"><div><dt>Last check (Melbourne)</dt><dd>{time(status?.lastCheckedAt ?? null)}</dd></div><div><dt>Last successful check (Melbourne)</dt><dd>{time(status?.lastConnectedAt ?? null)}</dd></div><div><dt>Session expiry</dt><dd>{status?.sessionExpiresAt ? time(status.sessionExpiresAt) : 'Controlled by DealerSocket; duration not verified'}</dd></div></dl>
     {status && <><h4>Rooftop access evidence</h4><ul>{status.rooftops.map(roof => <li key={roof.id}>{roof.name}: {!error && status.state === 'connected' && roof.verified ? 'Explicit dealership label observed' : 'Not verified'}</li>)}</ul></>}
